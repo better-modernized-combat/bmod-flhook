@@ -82,37 +82,55 @@ namespace Plugins::Hacking
 				continue;
 			}
 
+			// Checks if the player has a ship before proceeding. This handles disconnects, crashing and docking. It should also handle the player leaving the
+			// system, but I've not tested it.
+			if (Hk::Player::GetShip(i).has_error())
+			{
+				PrintUserCmdText(i, L"You have left the area, the hack has failed.");
+				Hk::Client::PlaySoundEffect(i, CreateID("bm_hack_failed"));
+				info.time = 0;
+				continue;
+			}
+
 			//  Check if the player is in range of the solar while the hack is ongoing.
 			if (!IsInSolarRange(i, info.target, global->config->hackingRadius))
 			{
 				if (info.beenWarned)
 				{
-					PrintUserCmdText(i, L"You're out of range, hack failed");
+					PrintUserCmdText(i, L"You're out of range, the hack has failed.");
 					info.time = 0;
 					auto playerShip = Hk::Player::GetShip(i).value();
 					IObjInspectImpl* inspect;
 					uint iDunno;
 					GetShipInspect(playerShip, inspect, iDunno);
 					Hk::Admin::UnLightFuse((IObjRW*)inspect, CreateID("bm_hack_ship_fuse"));
+					Hk::Client::PlaySoundEffect(i, CreateID("bm_hack_failed"));
 				}
 				else
 				{
 					PrintUserCmdText(i, L"Warning, you are moving out of range, the hack will fail if you persist.");
+					Hk::Client::PlaySoundEffect(i, CreateID("bm_hack_warn"));
 					info.beenWarned = true;
 				}
 
 				continue;
 			}
+
+			// Reset the beenWarned variable
+			info.beenWarned = false;
+
+			// Complete the hack when the timer finishes.
 			if (!info.time)
 			{
 				// TODO: Decrement the owning faction's reputation slightly on success.
 				// TODO: Togggle off the 'active hack' effect.
 				// TODO: Have any spawned NPCs 'cloak' and despawn a set time after the hack has finished.
 				// TODO: Toggle off the kill reward state on the initiating player.
-				// TODO: Handle Disconnects, docking and jumping while hacking
-
+				// TODO: Dynamic elements of the success message.
 				PrintLocalUserCmdText(i, global->config->hackingFinishedMessage, global->config->hackingMessageRadius);
-				Hk::Client::PlaySoundEffect(i, CreateID("ui_new_story_star"));
+
+				Hk::Client::PlaySoundEffect(i, CreateID("ui_receive_money"));
+				Hk::Client::PlaySoundEffect(i, CreateID("ui_end_scan"));
 				auto playerShip = Hk::Player::GetShip(i).value();
 				IObjInspectImpl* inspect;
 				uint iDunno;
@@ -145,7 +163,7 @@ namespace Plugins::Hacking
 		uint archetypeId;
 		pub::SpaceObj::GetSolarArchetypeID(target, archetypeId);
 
-		// TODO: Make the range configurable here and print the range the player needs to get into in this message
+		// Check if the player is within hackingRadius
 		bool inRange = IsInSolarRange(client, target, global->config->hackingRadius);
 		if (!inRange)
 		{
@@ -169,7 +187,19 @@ namespace Plugins::Hacking
 		}
 
 		// Start the Hack, sending a message to everyone within the hackingStartedMessage radius.
-		PrintLocalUserCmdText(client, global->config->hackingStartedMessage, global->config->hackingMessageRadius);
+		auto hackerName = Hk::Client::GetCharacterNameByID(client).value();
+		auto hackerPos = Hk::Solar::GetLocation(client, IdType::Client).value().first;
+		auto hackerSystem = Hk::Solar::GetSystemBySpaceId(target).value();
+		auto sectorCoordinate = Hk::Math::VectorToSectorCoord<std::wstring>(hackerSystem, hackerPos);
+		auto formattedStartHackMessage = std::vformat(global->config->hackingStartedMessage, std::make_wformat_args(hackerName, sectorCoordinate));
+		PrintLocalUserCmdText(client, formattedStartHackMessage, global->config->hackingMessageRadius);
+
+		// auto hackingRadius = std::to_wstring(global->config->hackingRadius);
+		// auto stringhackingTime = std::to_wstring(global->config->hackingTime);
+		PrintUserCmdText(client,
+		    std::format(L"You have started a hack, remain within {:.0f}m of the target for {} seconds in order to complete successful data retrieval.",
+		        (global->config->hackingRadius),
+		        global->config->hackingTime));
 
 		// Start the attached FX for the player and the hack
 		auto playerShip = Hk::Player::GetShip(client).value();
@@ -194,6 +224,7 @@ namespace Plugins::Hacking
 		hack.time = global->config->hackingTime;
 		hack.target = target;
 		Hk::Client::PlaySoundEffect(client, CreateID("ui_new_story_star"));
+		Hk::Client::PlaySoundEffect(client, CreateID("ui_begin_scan"));
 
 		// TODO: Prevent other players from attempting to hack the satellite at the same time.
 		// TODO: Satellite cycling per system

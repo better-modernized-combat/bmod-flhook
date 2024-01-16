@@ -17,16 +17,16 @@ namespace Plugins::Hacking
 		//! Hackable solar archetypes
 		std::string hackableSolarArchetype = "bm_hackable_sat";
 		//! Message sent to the local area when the hack starts.
-		std::wstring hackingStartedMessage = L"A communications buoy is being hacked by %player at %pos!";
+		std::wstring hackingStartedMessage = L"A communications buoy is being hacked by {0} in sector {1}!";
 		//! Message sent to the local area when the hack ends.
 		std::wstring hackingFinishedMessage =
-		    L"%player has completed their hack of the communications buoy at %pos and retrieved sensitive data from %faction!";
+		    L"{0} has completed their hack of the communications buoy in sector {1} and retrieved sensitive data from {2}!";
 		//! Radius in which the message is sent
-		float hackingMessageRadius = 10000.f;
+		float hackingMessageRadius = 25000.f;
 		//! Time taken for the hack to complete.
 		int hackingTime = 60;
 		//! The radius the player needs to be within to initiate and sustain the hack.
-		float hackingRadius = 500.f;
+		float hackingRadius = 750.f;
 	};
 
 	struct HackInfo
