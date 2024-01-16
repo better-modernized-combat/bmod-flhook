@@ -119,12 +119,6 @@ setx FLHOOK_SDK_PATH "$(SolutionDir)..\FLHookSDK\\"</Command>
     </PreLinkEvent>
     <PostBuildEvent>
       <Command>
-				IF "%FL_PATH%"=="" exit 0
-				robocopy $(SolutionDir)../dist/Release %FL_PATH%\\EXE  "*.dll" /is /E /e
-				if ERRORLEVEL GTR 5 goto HandleError
-				exit 0
-				:HandleError
-				exit %ERRORLEVEL%
 			</Command>
     </PostBuildEvent>
     <PreBuildEvent>
