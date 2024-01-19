@@ -2,6 +2,9 @@
 
 #include <FLHook.hpp>
 #include <plugin.h>
+#include "../npc_control/NPCControl.h"
+// #include "../bountyhunt/BountyHunt.h"
+// #include "../death_penalty/DeathPenalty.h"
 
 namespace Plugins::Hacking
 {
@@ -20,13 +23,17 @@ namespace Plugins::Hacking
 		std::wstring hackingStartedMessage = L"A communications buoy is being hacked by {0} in sector {1}!";
 		//! Message sent to the local area when the hack ends.
 		std::wstring hackingFinishedMessage =
-		    L"{0} has completed their hack of the communications buoy in sector {1} and retrieved sensitive data from {2}!";
+		    L"{0} has completed their hack of the communications buoy in sector {1} and retrieved sensitive data from the {2}!";
 		//! Radius in which the message is sent
 		float hackingMessageRadius = 25000.f;
 		//! Time taken for the hack to complete.
 		int hackingTime = 60;
 		//! The radius the player needs to be within to initiate and sustain the hack.
 		float hackingRadius = 750.f;
+		//! The minimum credits rewarded when the player completes the hack.
+		int rewardCashMin = 2500;
+		//! The maximum credits rewarded when the player completes the hack.
+		int rewardCashMax = 5000;
 	};
 
 	struct HackInfo
@@ -34,6 +41,7 @@ namespace Plugins::Hacking
 		uint target = 0;
 		int time = 0;
 		bool beenWarned = false;
+		std::vector<uint> spawnedNpcList;
 	};
 
 	struct Global
@@ -43,5 +51,6 @@ namespace Plugins::Hacking
 		bool pluginActive = true;
 		uint targetHash = 0;
 		std::array<HackInfo, 255> activeHacks;
+		Plugins::Npc::NpcCommunicator* npcCommunicator = nullptr;
 	};
 } // namespace Plugins::Hacking
