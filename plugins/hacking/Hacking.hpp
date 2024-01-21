@@ -14,8 +14,6 @@ namespace Plugins::Hacking
 	{
 		std::string File() override { return "config/hacking.json"; }
 
-		// TODO: put variables into the hackable strings.
-
 		// Reflectable fields
 		//! Hackable solar archetypes
 		std::string hackableSolarArchetype = "bm_hackable_sat";
@@ -34,6 +32,11 @@ namespace Plugins::Hacking
 		int rewardCashMin = 2500;
 		//! The maximum credits rewarded when the player completes the hack.
 		int rewardCashMax = 5000;
+		//! Amount of time spawned NPCs that guard the hacking buoy will persist after a hack has been completed or failed.
+		int guardNpcPersistTime = 20;
+		//! A Map of which NPCs can spawn for which factions when guarding objectives
+		std::map<std::string, std::vector<std::string>> configGuardNpcMap {
+		    {"li_n_grp", {{"l_defender"}, {"l_patriot"}, {"l_guardian"}}}, {"fc_x_grp", {{"x_hawk"}, {"x_falcon"}, {"x_eagle"}}}};
 	};
 
 	struct HackInfo
@@ -52,5 +55,6 @@ namespace Plugins::Hacking
 		uint targetHash = 0;
 		std::array<HackInfo, 255> activeHacks;
 		Plugins::Npc::NpcCommunicator* npcCommunicator = nullptr;
+		std::unordered_map<uint, std::vector<std::string>> guardNpcMap;
 	};
 } // namespace Plugins::Hacking
