@@ -24,6 +24,11 @@
 // Includes
 #include "Hacking.hpp"
 
+// TODO: General pass on variable names
+// TODO: Prevent other players from attempting to hack the satellite at the same time.
+// TODO: Satellite cycling per system
+// TODO: Reward for players that kill offending player
+
 namespace Plugins::Hacking
 {
 	const auto global = std::make_unique<Global>();
@@ -119,6 +124,44 @@ namespace Plugins::Hacking
 			return true;
 		}
 		return false;
+	}
+
+	// Function: Checks to see if the player can start an initial objective
+	void CanStartInitialObjective(uint client)
+	{
+		// TODO: Create and implement this function
+	}
+
+	// Function: Spawns ships between min and max of a given type for a given faction. Picks randomly from the list for that faction defined in the config
+	void SpawnRandomShips(const Vector& pos, uint system, uint client, HackInfo& hack, uint solarFaction)
+	{
+		auto randomDist = RandomNumber(0, 1) ? 1000.f : -1000.f;
+		const auto spawnGuardNPCs = [pos, system, randomDist](const std::wstring& guardNpc) {
+			Vector guardNpcPos = {{pos.x + randomDist}, {pos.y + randomDist}, {pos.z + randomDist}};
+			Matrix defaultNpcRot = {{{1.f, 0, 0}, {0.f, 1.f, 0.f}, {0.f, 0.f, 1.f}}};
+			return global->npcCommunicator->CreateNpc(guardNpc, guardNpcPos, defaultNpcRot, system, true);
+		};
+
+		auto groupSize = Hk::Player::GetGroupMembers(client).value();
+
+		// Iterates over global->guardNpcMap and checks to see if it contains the faction belonging to solarFaction
+		if (!global->guardNpcMap.contains(solarFaction))
+		{
+			AddLog(LogType::Normal, LogLevel::Err, std::format("No defined NPCs belong to faction {}", solarFaction));
+			return;
+		}
+
+		auto& npcShipList = global->guardNpcMap.at(solarFaction);
+
+		for (const auto& _ : groupSize)
+		{
+			for (int i = 0; i < RandomNumber(global->config->minNpcGuards, global->config->maxNpcGuards); i++)
+			{
+				auto randRes = RandomNumber(0, npcShipList.size() - 1);
+				const auto& npcToSpawn = npcShipList[randRes];
+				hack.spawnedNpcList.emplace_back(spawnGuardNPCs(stows(npcToSpawn)));
+			}
+		}
 	}
 
 	// Function: This function is called when an initial objective is completed.
@@ -301,7 +344,6 @@ namespace Plugins::Hacking
 			return;
 		}
 
-		// Start a Timer equal to the hackingTime config variable
 		hack.target = target;
 		Hk::Client::PlaySoundEffect(client, CreateID("ui_new_story_star"));
 		Hk::Client::PlaySoundEffect(client, CreateID("ui_begin_scan"));
@@ -314,41 +356,13 @@ namespace Plugins::Hacking
 		auto formattedStartHackMessage = std::vformat(global->config->hackingStartedMessage, std::make_wformat_args(hackerName, sectorCoordinate));
 		PrintLocalUserCmdText(client, formattedStartHackMessage, global->config->hackingMessageRadius);
 
-		// Spawns a defined Guard NPC when the hack starts within 3-4km of the hacker.
-		auto randomDist = RandomNumber(0, 1) ? 1000.f : -1000.f;
-		const auto spawnGuardNPCs = [hackerPos, hackerSystem, randomDist](const std::wstring& guardNpc) {
-			Vector guardNpcPos = {{hackerPos.x + randomDist}, {hackerPos.y + randomDist}, {hackerPos.z + randomDist}};
-			Matrix defaultNpcRot = {{{1.f, 0, 0}, {0.f, 1.f, 0.f}, {0.f, 0.f, 1.f}}};
-			return global->npcCommunicator->CreateNpc(guardNpc, guardNpcPos, defaultNpcRot, hackerSystem, true);
-		};
-
-		auto groupSize = Hk::Player::GetGroupMembers(client).value();
-
 		// Get the solar's reputation
 		int solarReputation;
 		pub::SpaceObj::GetRep(hack.target, solarReputation);
 		uint solarFaction;
 		pub::Reputation::GetAffiliation(solarReputation, solarFaction);
 
-		// Iterates over global->guardNpcMap and checks to see if it contains the faction belonging to the objective solar.
-		if (!global->guardNpcMap.contains(solarFaction))
-		{
-			AddLog(LogType::Normal, LogLevel::Err, std::format("No defined NPCs belong to faction {}", solarFaction));
-			return;
-		}
-
-		auto& npcShipList = global->guardNpcMap.at(solarFaction);
-
-		for (const auto& _ : groupSize)
-		{
-			auto randRes = RandomNumber(0, npcShipList.size() - 1);
-			const auto& npcToSpawn = npcShipList[randRes];
-
-			for (int i = 0; i < RandomNumber(global->config->minNpcGuards, global->config->maxNpcGuards); i++)
-			{
-				hack.spawnedNpcList.emplace_back(spawnGuardNPCs(stows(npcToSpawn)));
-			}
-		}
+		SpawnRandomShips(hackerPos, hackerSystem, client, hack, solarFaction);
 
 		PrintUserCmdText(client,
 		    std::format(L"You have started a hack, remain within {:.0f}m of the target for {} seconds in order to complete successful data retrieval.",
@@ -369,10 +383,6 @@ namespace Plugins::Hacking
 
 		// Start the Hack timer
 		hack.time = global->config->hackingTime;
-
-		// TODO: Prevent other players from attempting to hack the satellite at the same time.
-		// TODO: Satellite cycling per system
-		// TODO: Reward for players that kill offending player
 	}
 
 	// Define usable chat commands here
@@ -381,8 +391,6 @@ namespace Plugins::Hacking
 	}};
 
 } // namespace Plugins::Hacking
-
-// namespace Plugins::Template
 
 using namespace Plugins::Hacking;
 
