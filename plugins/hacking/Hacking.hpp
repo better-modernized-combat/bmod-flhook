@@ -26,14 +26,21 @@ namespace Plugins::Hacking
 		float hackingMessageRadius = 25000.f;
 		//! Time taken for the hack to complete.
 		int hackingTime = 60;
-		//! The radius the player needs to be within to initiate and sustain the hack.
-		float hackingRadius = 750.f;
+		//! The radius the player needs to be within to initiate the hack.
+		float hackingInitiateRadius = 750.f;
+		//! The radius the player needs to be within to sustain the hack.
+		float hackingSustainRadius = 2000.f;
 		//! The minimum credits rewarded when the player completes the hack.
 		int rewardCashMin = 2500;
 		//! The maximum credits rewarded when the player completes the hack.
 		int rewardCashMax = 5000;
 		//! Amount of time spawned NPCs that guard the hacking buoy will persist after a hack has been completed or failed.
 		int guardNpcPersistTime = 20;
+		//! The minimum number of NPC guards that will spawn on an initial objective.
+		int minNpcGuards = 2;
+		//! The maximum number of NPC guards that will spawn on an initial objective.
+		int maxNpcGuards = 3;
+
 		//! A Map of which NPCs can spawn for which factions when guarding objectives
 		std::map<std::string, std::vector<std::string>> configGuardNpcMap {
 		    {"li_n_grp", {{"l_defender"}, {"l_patriot"}, {"l_guardian"}}}, {"fc_x_grp", {{"x_hawk"}, {"x_falcon"}, {"x_eagle"}}}};

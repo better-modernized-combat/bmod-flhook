@@ -18,7 +18,7 @@
  * This plugin does not expose any functionality.
  *
  * @paragraph optional Optional Plugin Dependencies
- * This plugin has no dependencies.
+ * This plugin depends on NPC Control
  */
 
 // Includes
@@ -68,6 +68,7 @@ namespace Plugins::Hacking
 	// Function: Cleans up after an objective is complete, removing any NPCs and resetting any active timers or fuses
 	void CleanUp(HackInfo& info)
 	{
+		// TODO: Clean up any bounties placed on the player by this plugin
 		pub::SpaceObj::SetRelativeHealth(info.target, 1.f);
 		info.spawnedNpcList.clear();
 		info.target = 0;
@@ -120,7 +121,66 @@ namespace Plugins::Hacking
 		return false;
 	}
 
-	// Function: handles events that occur after the initial objective has been started and events that occur upon completion.
+	// Function: This function is called when an initial objective is completed.
+	void InitialObjectiveComplete(const HackInfo& info, uint client)
+	{
+		if (!info.time)
+		{
+			// Grab all the information needed to populate the proximity message sent to the players:
+			auto hackerEndName = Hk::Client::GetCharacterNameByID(client).value();
+			auto hackerEndPos = Hk::Solar::GetLocation(client, IdType::Client).value().first;
+			auto hackerEndSystem = Hk::Solar::GetSystemBySpaceId(info.target).value();
+			auto sectorEndCoordinate = Hk::Math::VectorToSectorCoord<std::wstring>(hackerEndSystem, hackerEndPos);
+			int npcReputation;
+			pub::SpaceObj::GetRep(info.target, npcReputation);
+			uint npcFaction;
+			pub::Reputation::GetAffiliation(npcReputation, npcFaction);
+			uint npcIds;
+			pub::Reputation::GetGroupName(npcFaction, npcIds);
+			auto realName = Hk::Message::GetWStringFromIdS(npcIds);
+
+			// Send the message to everyone within hackingMessageRadius
+			auto formattedEndHackMessage =
+			    std::vformat(global->config->hackingFinishedMessage, std::make_wformat_args(hackerEndName, sectorEndCoordinate, realName));
+			PrintLocalUserCmdText(client, formattedEndHackMessage, global->config->hackingMessageRadius);
+
+			// Adjust the hacker's reputation with the owning faction by -0.05
+			auto hackerOriginalRep = Hk::Player::GetRep(client, npcFaction);
+			auto hackerNewRep = hackerOriginalRep.value() - 0.05f;
+			int playerRepInstance;
+			pub::Player::GetRep(client, playerRepInstance);
+			pub::Reputation::SetReputation(playerRepInstance, npcFaction, hackerNewRep);
+
+			// Pick a number between rewardCashMin and rewardCashMax and and credit the player that amount for completion of the hack.
+			auto randomCash = RandomNumber(global->config->rewardCashMin, global->config->rewardCashMax);
+			Hk::Player::AddCash(client, randomCash);
+
+			// Grab all the information needed to populate the private message to the player.
+			// TODO: Populate these fields properly
+			Vector rewardPos = {{200.f}, {200.f}, {200.f}};
+			auto rewardSystem = "Li03";
+			auto rewardSector = Hk::Math::VectorToSectorCoord<std::wstring>(CreateID(rewardSystem), rewardPos);
+
+			// Send a private message to the player notifying them of their randomCash reward and POI location.
+			auto formattedHackRewardMessage =
+			    std::format(L"{} credits diverted from local financial ansibles, a point of interest has been revealed in sector {} ({:.0f}, {:.0f}, {:.0f}).",
+			        randomCash,
+			        rewardSector,
+			        rewardPos.x,
+			        rewardPos.y,
+			        rewardPos.z);
+			PrintUserCmdText(client, formattedHackRewardMessage);
+
+			// Play some sounds to telegraph the successful completion of the hack.
+			Hk::Client::PlaySoundEffect(client, CreateID("ui_receive_money"));
+			Hk::Client::PlaySoundEffect(client, CreateID("ui_end_scan"));
+			UnLightShipFuse(client, "bm_hack_ship_fuse");
+			// Turn off the solar fuse:
+			pub::SpaceObj::SetRelativeHealth(info.target, 1.f);
+		}
+	}
+
+	// Function: handles events that occur after the initial objective has been started and events that occur as the completion timer counts down.
 	void ObjectiveTimerTick()
 	{
 		// Start the timer
@@ -155,8 +215,7 @@ namespace Plugins::Hacking
 			}
 
 			// Check if the player is in range of the solar while the hack is ongoing. There's a grace period for leaving the area where the player is warned.
-			// TODO: Seperate the distance required to initiate the hack and the radius needed to sustain it.
-			if (!IsInSolarRange(client, info.target, global->config->hackingRadius))
+			if (!IsInSolarRange(client, info.target, global->config->hackingSustainRadius))
 			{
 				// Set the target's relative Health to half, triggering the effect fuse
 				pub::SpaceObj::SetRelativeHealth(info.target, 0.5f);
@@ -188,62 +247,7 @@ namespace Plugins::Hacking
 			info.beenWarned = false;
 
 			// Complete the hack when the timer finishes.
-			if (!info.time)
-			{
-				// TODO: Toggle off the kill reward state on the initiating player.
-
-				// Grab all the information needed to populate the proximity message sent to the players:
-				auto hackerEndName = Hk::Client::GetCharacterNameByID(client).value();
-				auto hackerEndPos = Hk::Solar::GetLocation(client, IdType::Client).value().first;
-				auto hackerEndSystem = Hk::Solar::GetSystemBySpaceId(info.target).value();
-				auto sectorEndCoordinate = Hk::Math::VectorToSectorCoord<std::wstring>(hackerEndSystem, hackerEndPos);
-				int npcReputation;
-				pub::SpaceObj::GetRep(info.target, npcReputation);
-				uint npcFaction;
-				pub::Reputation::GetAffiliation(npcReputation, npcFaction);
-				uint npcIds;
-				pub::Reputation::GetGroupName(npcFaction, npcIds);
-				auto realName = Hk::Message::GetWStringFromIdS(npcIds);
-
-				// Send the message to everyone within hackingMessageRadius
-				auto formattedEndHackMessage =
-				    std::vformat(global->config->hackingFinishedMessage, std::make_wformat_args(hackerEndName, sectorEndCoordinate, realName));
-				PrintLocalUserCmdText(client, formattedEndHackMessage, global->config->hackingMessageRadius);
-
-				// Adjust the hacker's reputation with the owning faction by -0.05
-				auto hackerOriginalRep = Hk::Player::GetRep(client, npcFaction);
-				auto hackerNewRep = hackerOriginalRep.value() - 0.05f;
-				int playerRepInstance;
-				pub::Player::GetRep(client, playerRepInstance);
-				pub::Reputation::SetReputation(playerRepInstance, npcFaction, hackerNewRep);
-
-				// Pick a number between rewardCashMin and rewardCashMax and and credit the player that amount for completion of the hack.
-				auto randomCash = RandomNumber(global->config->rewardCashMin, global->config->rewardCashMax);
-				Hk::Player::AddCash(client, randomCash);
-
-				// Grab all the information needed to populate the private message to the player.
-				// TODO: Populate these fields properly
-				Vector rewardPos = {{200.f}, {200.f}, {200.f}};
-				auto rewardSystem = "Li03";
-				auto rewardSector = Hk::Math::VectorToSectorCoord<std::wstring>(CreateID(rewardSystem), rewardPos);
-
-				// Send a private message to the player notifying them of their randomCash reward and POI location.
-				auto formattedHackRewardMessage = std::format(
-				    L"{} credits diverted from local financial ansibles, a point of interest has been revealed in sector {} ({:.0f}, {:.0f}, {:.0f}).",
-				    randomCash,
-				    rewardSector,
-				    rewardPos.x,
-				    rewardPos.y,
-				    rewardPos.z);
-				PrintUserCmdText(client, formattedHackRewardMessage);
-
-				// Play some sounds to telegraph the successful completion of the hack.
-				Hk::Client::PlaySoundEffect(client, CreateID("ui_receive_money"));
-				Hk::Client::PlaySoundEffect(client, CreateID("ui_end_scan"));
-				UnLightShipFuse(client, "bm_hack_ship_fuse");
-				// Turn off the solar fuse:
-				pub::SpaceObj::SetRelativeHealth(info.target, 1.f);
-			}
+			InitialObjectiveComplete(info, client);
 		}
 	}
 
@@ -275,8 +279,8 @@ namespace Plugins::Hacking
 		uint archetypeId;
 		pub::SpaceObj::GetSolarArchetypeID(target, archetypeId);
 
-		// Check if the player is within hackingRadius
-		if (bool inRange = IsInSolarRange(client, target, global->config->hackingRadius); !inRange)
+		// Check if the player is within hackingInitiateRadius
+		if (bool inRange = IsInSolarRange(client, target, global->config->hackingInitiateRadius); !inRange)
 		{
 			PrintUserCmdText(client, L"The target you have selected is too far away to initiate a hacking attempt. Please get closer.");
 			return;
@@ -340,14 +344,15 @@ namespace Plugins::Hacking
 			auto randRes = RandomNumber(0, npcShipList.size() - 1);
 			const auto& npcToSpawn = npcShipList[randRes];
 
-			// TODO: Make the amount of NPCs that can spawn here configurable in a range.
-			hack.spawnedNpcList.emplace_back(spawnGuardNPCs(stows(npcToSpawn)));
-			hack.spawnedNpcList.emplace_back(spawnGuardNPCs(stows(npcToSpawn)));
+			for (int i = 0; i < RandomNumber(global->config->minNpcGuards, global->config->maxNpcGuards); i++)
+			{
+				hack.spawnedNpcList.emplace_back(spawnGuardNPCs(stows(npcToSpawn)));
+			}
 		}
 
 		PrintUserCmdText(client,
 		    std::format(L"You have started a hack, remain within {:.0f}m of the target for {} seconds in order to complete successful data retrieval.",
-		        (global->config->hackingRadius),
+		        (global->config->hackingSustainRadius),
 		        global->config->hackingTime));
 
 		// Start the attached FX for the player and the hack
@@ -383,7 +388,8 @@ using namespace Plugins::Hacking;
 
 // Generates the JSON file
 REFL_AUTO(type(Config), field(hackableSolarArchetype), field(hackingStartedMessage), field(hackingFinishedMessage), field(hackingMessageRadius),
-    field(hackingTime), field(rewardCashMin), field(rewardCashMax), field(hackingTime), field(guardNpcPersistTime), field(configGuardNpcMap));
+    field(hackingTime), field(rewardCashMin), field(rewardCashMax), field(hackingTime), field(guardNpcPersistTime), field(configGuardNpcMap),
+    field(minNpcGuards), field(maxNpcGuards), field(hackingSustainRadius), field(hackingInitiateRadius));
 
 DefaultDllMainSettings(LoadSettings);
 
