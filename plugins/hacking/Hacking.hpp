@@ -22,7 +22,7 @@ namespace Plugins::Hacking
 		//! Message sent to the local area when the hack ends.
 		std::wstring hackingFinishedMessage =
 		    L"{0} has completed their hack of the communications buoy in sector {1} and retrieved sensitive data from the {2}!";
-		//! Radius in which the message is sent
+		//! Radius in which the message is sent to players in the area.
 		float hackingMessageRadius = 25000.f;
 		//! Time taken for the hack to complete.
 		int hackingTime = 60;
