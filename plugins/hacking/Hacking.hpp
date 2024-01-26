@@ -40,10 +40,13 @@ namespace Plugins::Hacking
 		int minNpcGuards = 2;
 		//! The maximum number of NPC guards that will spawn on an initial objective.
 		int maxNpcGuards = 3;
-
 		//! A Map of which NPCs can spawn for which factions when guarding objectives
 		std::map<std::string, std::vector<std::string>> configGuardNpcMap {
 		    {"li_n_grp", {{"l_defender"}, {"l_patriot"}, {"l_guardian"}}}, {"fc_x_grp", {{"x_hawk"}, {"x_falcon"}, {"x_eagle"}}}};
+		//! A Map of which hackable solars, and the system that they are in.
+		std::map<std::string, std::vector<std::string>> configInitialObjectiveSolars {
+		    {"Li03", {{"bm_li03_hackable_1"}, {"bm_li03_hackable_2"}, {"bm_li03_hackable_3"}}},
+		    {"Li01", {{"bm_li01_hackable_1"}, {"bm_li01_hackable_2"}, {"bm_li01_hackable_3"}}}};
 	};
 
 	struct HackInfo
@@ -52,6 +55,12 @@ namespace Plugins::Hacking
 		int time = 0;
 		bool beenWarned = false;
 		std::vector<uint> spawnedNpcList;
+	};
+
+	struct InitialObjectiveSolars
+	{
+		int time = 0;
+		std::vector<uint> rotatingSolars;
 	};
 
 	struct Global
@@ -63,5 +72,6 @@ namespace Plugins::Hacking
 		std::array<HackInfo, 255> activeHacks;
 		Plugins::Npc::NpcCommunicator* npcCommunicator = nullptr;
 		std::unordered_map<uint, std::vector<std::string>> guardNpcMap;
+		std::map<std::string, InitialObjectiveSolars> solars;
 	};
 } // namespace Plugins::Hacking

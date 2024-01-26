@@ -59,6 +59,15 @@ namespace Plugins::Hacking
 		{
 			global->guardNpcMap[MakeId(key.c_str())] = value;
 		}
+		for (const auto& [key, value] : global->config->configInitialObjectiveSolars)
+		{
+			InitialObjectiveSolars solars;
+			for (const auto& id : value)
+			{
+				solars.rotatingSolars.emplace_back(CreateID(id.c_str()));
+			}
+			global->solars[key] = solars;
+		}
 	}
 
 	// Function: Generates a random int between min and max
@@ -126,10 +135,8 @@ namespace Plugins::Hacking
 		return false;
 	}
 
-	// Function: Checks to see if the player can start an initial objective
-	void CanStartInitialObjective(uint client)
+	void InitialObjectiveSolarTimer()
 	{
-		// TODO: Create and implement this function
 	}
 
 	// Function: Spawns ships between min and max of a given type for a given faction. Picks randomly from the list for that faction defined in the config
@@ -226,6 +233,7 @@ namespace Plugins::Hacking
 	// Function: handles events that occur after the initial objective has been started and events that occur as the completion timer counts down.
 	void ObjectiveTimerTick()
 	{
+		// TODO: put in warning for non multiple of 5 values with these times
 		// Start the timer
 		for (auto client = 0u; client != global->activeHacks.size(); client++)
 		{
@@ -292,6 +300,10 @@ namespace Plugins::Hacking
 			// Complete the hack when the timer finishes.
 			InitialObjectiveComplete(info, client);
 		}
+	}
+
+	void GlobalTimerTick()
+	{
 	}
 
 	// What happens when our /hack command is called by a player
@@ -401,7 +413,7 @@ REFL_AUTO(type(Config), field(hackableSolarArchetype), field(hackingStartedMessa
 
 DefaultDllMainSettings(LoadSettings);
 
-const std::vector<Timer> timers = {{ObjectiveTimerTick, 5}};
+const std::vector<Timer> timers = {{ObjectiveTimerTick, 5}, {GlobalTimerTick, 60}};
 extern "C" EXPORT void ExportPluginInfo(PluginInfo* pi)
 {
 	// Full name of your plugin
