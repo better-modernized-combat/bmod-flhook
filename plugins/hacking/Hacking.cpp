@@ -28,7 +28,7 @@
 // TODO: General pass on variable names
 // TODO: Prevent other players from attempting to hack the satellite at the same time.
 // TODO: Satellite cycling per system: Ensure health on active hack target is not tampered with
-// TODO: Reward for players that kill offending player
+// TODO: Check activehacks and cover for when a hacking is ongoing and the satellites cycle
 
 namespace Plugins::Hacking
 {
@@ -71,7 +71,7 @@ namespace Plugins::Hacking
 		}
 		for (const auto& [key, value] : global->config->configInitialObjectiveSolars)
 		{
-			ObjectiveSolars solars;
+			ObjectiveSolarCategories solars;
 			for (const auto& id : value)
 			{
 				solars.rotatingSolars.emplace_back(CreateID(id.c_str()));
@@ -84,7 +84,6 @@ namespace Plugins::Hacking
 	// Function: Cleans up after an objective is complete, removing any NPCs and resetting any active timers or fuses
 	void CleanUp(HackInfo& info)
 	{
-		// TODO: Clean up any bounties placed on the player by this plugin
 		pub::SpaceObj::SetRelativeHealth(info.target, 1.f);
 		info.spawnedNpcList.clear();
 		info.target = 0;
@@ -222,7 +221,7 @@ namespace Plugins::Hacking
 			// Play some sounds to telegraph the successful completion of the hack.
 			Hk::Client::PlaySoundEffect(client, CreateID("ui_receive_money"));
 			Hk::Client::PlaySoundEffect(client, CreateID("ui_end_scan"));
-			UnLightShipFuse(client, "bm_hack_ship_fuse");
+			UnLightShipFuse(client, global->config->shipFuse);
 			// Turn off the solar fuse:
 			pub::SpaceObj::SetRelativeHealth(info.target, 1.f);
 		}
@@ -260,6 +259,10 @@ namespace Plugins::Hacking
 				Hk::Client::PlaySoundEffect(client, CreateID("bm_hack_failed"));
 				pub::SpaceObj::SetRelativeHealth(info.target, 1.f);
 				info.time = 0;
+				for (auto& i : global->solars | std::views::values)
+				{
+					i.rotatingSolars[i.currentIndex].isHacking = false;
+				}
 				continue;
 			}
 
@@ -274,10 +277,14 @@ namespace Plugins::Hacking
 					// Notify the player, play an audio cue, turn off the fuses, reset the timer and the warning flag, failing the objective.
 					PrintUserCmdText(client, L"You're out of range, the hack has failed.");
 					Hk::Client::PlaySoundEffect(client, CreateID("bm_hack_failed"));
-					UnLightShipFuse(client, "bm_hack_ship_fuse");
+					UnLightShipFuse(client, global->config->shipFuse);
 					pub::SpaceObj::SetRelativeHealth(info.target, 1.f);
 					info.time = 0;
 					info.beenWarned = false;
+					for (auto& i : global->solars | std::views::values)
+					{
+						i.rotatingSolars[i.currentIndex].isHacking = false;
+					}
 				}
 				else
 				{
@@ -305,20 +312,19 @@ namespace Plugins::Hacking
 	{
 		for (auto& list : global->solars | std::views::values)
 		{
-			// TODO: Check here the satellite isn't involved in an active hack before adjusting it's HP back to 1
 			// TODO: This seems to be returning 0 sometimes.
-			if (list.rotatingSolars[list.currentIndex] != 0)
+			if (list.rotatingSolars[list.currentIndex].solar != 0 && list.rotatingSolars[list.currentIndex].isHacking == false)
 			{
-				pub::SpaceObj::SetRelativeHealth(list.rotatingSolars[list.currentIndex], 1.f);
+				pub::SpaceObj::SetRelativeHealth(list.rotatingSolars[list.currentIndex].solar, 1.f);
 			}
 
 			list.currentIndex++;
-			AddLog(LogType::Normal, LogLevel::Debug, std::format("Cycling a list hack target to {}", list.rotatingSolars[list.currentIndex]));
+			AddLog(LogType::Normal, LogLevel::Debug, std::format("Cycling a list hack target to {}", list.rotatingSolars[list.currentIndex].solar));
 			if (list.currentIndex == list.rotatingSolars.size())
 			{
 				list.currentIndex = 0;
 			}
-			pub::SpaceObj::SetRelativeHealth(list.rotatingSolars[list.currentIndex], 0.6f);
+			pub::SpaceObj::SetRelativeHealth(list.rotatingSolars[list.currentIndex].solar, 0.6f);
 		}
 	}
 
@@ -361,7 +367,18 @@ namespace Plugins::Hacking
 		bool solarFound = false;
 		for (auto& i : global->solars | std::views::values)
 		{
-			if (i.rotatingSolars[i.currentIndex] == target)
+			if (i.rotatingSolars[i.currentIndex].isHacking == true)
+			{
+				PrintUserCmdText(client, L"Someone else is already attempting to hack this target.");
+				return;
+			}
+			if (i.rotatingSolars[i.currentIndex].isHacked == true)
+			{
+				PrintUserCmdText(client, L"Someone has recently hacked this target and it has been secured.");
+				return;
+			}
+
+			if (i.rotatingSolars[i.currentIndex].solar == target)
 			{
 				solarFound = true;
 				break;
@@ -387,6 +404,11 @@ namespace Plugins::Hacking
 		Hk::Client::PlaySoundEffect(client, CreateID("ui_begin_scan"));
 
 		// Start the Hack, sending a message to everyone within the hackingStartedMessage radius.
+
+		for (auto& i : global->solars | std::views::values)
+		{
+			i.rotatingSolars[i.currentIndex].isHacking = true;
+		}
 		auto hackerName = Hk::Client::GetCharacterNameByID(client).value();
 		auto hackerPos = Hk::Solar::GetLocation(client, IdType::Client).value().first;
 		auto hackerSystem = Hk::Solar::GetSystemBySpaceId(target).value();
@@ -408,7 +430,7 @@ namespace Plugins::Hacking
 		        global->config->hackingTime));
 
 		// Start the attached FX for the player and the hack
-		LightShipFuse(client, "bm_hack_ship_fuse");
+		LightShipFuse(client, global->config->shipFuse);
 		// Sets the relative health of the target to half in order to play the hacking radius FX fuse. This is horrible, but seems to be our only option.
 		pub::SpaceObj::SetRelativeHealth(target, 0.5f);
 
@@ -435,7 +457,8 @@ using namespace Plugins::Hacking;
 // Generates the JSON file
 REFL_AUTO(type(Config), field(hackableSolarArchetype), field(hackingStartedMessage), field(hackingFinishedMessage), field(hackingMessageRadius),
     field(hackingTime), field(rewardCashMin), field(rewardCashMax), field(hackingTime), field(guardNpcPersistTime), field(configGuardNpcMap),
-    field(minNpcGuards), field(maxNpcGuards), field(hackingSustainRadius), field(hackingInitiateRadius));
+    field(minNpcGuards), field(maxNpcGuards), field(hackingSustainRadius), field(hackingInitiateRadius), field(configGuardNpcMap),
+    field(configInitialObjectiveSolars), field(useFuses), field(shipFuse));
 
 DefaultDllMainSettings(LoadSettings);
 

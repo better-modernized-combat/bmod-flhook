@@ -40,6 +40,12 @@ namespace Plugins::Hacking
 		int minNpcGuards = 2;
 		//! The maximum number of NPC guards that will spawn on an initial objective.
 		int maxNpcGuards = 3;
+		//! Whether or not to attach VFX fuses to a ship that's hacking the initial objective. This also adjusts the health of an objective depending on its
+		//! state in order to trigger additional fuses. These must be defined in the inis and are restricted to modded installs only. Enabling this shouldn't
+		//! cause problems on a vanilla server.
+		bool useFuses = true;
+		//! The fuse to attach to the ship (If in use)
+		std::string shipFuse = "bm_hack_ship_fuse";
 		//! A Map of which NPCs can spawn for which factions when guarding objectives
 		std::map<std::string, std::vector<std::string>> configGuardNpcMap {
 		    {"li_n_grp", {{"l_defender"}, {"l_patriot"}, {"l_guardian"}}}, {"fc_x_grp", {{"x_hawk"}, {"x_falcon"}, {"x_eagle"}}}};
@@ -59,9 +65,16 @@ namespace Plugins::Hacking
 
 	struct ObjectiveSolars
 	{
+		uint solar = 0;
+		bool isHacking = false;
+		bool isHacked = false;
+	};
+
+	struct ObjectiveSolarCategories
+	{
 		int time = 0;
 		uint currentIndex = 0;
-		std::vector<uint> rotatingSolars;
+		std::vector<ObjectiveSolars> rotatingSolars;
 	};
 
 	struct Global
@@ -73,6 +86,6 @@ namespace Plugins::Hacking
 		std::array<HackInfo, 255> activeHacks;
 		Plugins::Npc::NpcCommunicator* npcCommunicator = nullptr;
 		std::unordered_map<uint, std::vector<std::string>> guardNpcMap;
-		std::map<std::string, ObjectiveSolars> solars;
+		std::map<std::string, ObjectiveSolarCategories> solars;
 	};
 } // namespace Plugins::Hacking
