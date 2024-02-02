@@ -23,15 +23,25 @@
 
 // Includes
 #include "Hacking.hpp"
+#include <ranges>
 
 // TODO: General pass on variable names
 // TODO: Prevent other players from attempting to hack the satellite at the same time.
-// TODO: Satellite cycling per system
+// TODO: Satellite cycling per system: Ensure health on active hack target is not tampered with
 // TODO: Reward for players that kill offending player
 
 namespace Plugins::Hacking
 {
 	const auto global = std::make_unique<Global>();
+
+	// Function: Generates a random int between min and max
+	int RandomNumber(int min, int max)
+	{
+		static std::random_device dev;
+		static auto engine = std::mt19937(dev());
+		auto range = std::uniform_int_distribution(min, max);
+		return range(engine);
+	}
 
 	// Function: load the JSON config file
 	void LoadSettings()
@@ -61,22 +71,14 @@ namespace Plugins::Hacking
 		}
 		for (const auto& [key, value] : global->config->configInitialObjectiveSolars)
 		{
-			InitialObjectiveSolars solars;
+			ObjectiveSolars solars;
 			for (const auto& id : value)
 			{
 				solars.rotatingSolars.emplace_back(CreateID(id.c_str()));
 			}
+			solars.currentIndex = RandomNumber(0, solars.rotatingSolars.size() - 1);
 			global->solars[key] = solars;
 		}
-	}
-
-	// Function: Generates a random int between min and max
-	int RandomNumber(int min, int max)
-	{
-		static std::random_device dev;
-		static auto engine = std::mt19937(dev());
-		auto range = std::uniform_int_distribution(min, max);
-		return range(engine);
 	}
 
 	// Function: Cleans up after an objective is complete, removing any NPCs and resetting any active timers or fuses
@@ -133,10 +135,6 @@ namespace Plugins::Hacking
 			return true;
 		}
 		return false;
-	}
-
-	void InitialObjectiveSolarTimer()
-	{
 	}
 
 	// Function: Spawns ships between min and max of a given type for a given faction. Picks randomly from the list for that faction defined in the config
@@ -269,7 +267,7 @@ namespace Plugins::Hacking
 			if (!IsInSolarRange(client, info.target, global->config->hackingSustainRadius))
 			{
 				// Set the target's relative Health to half, triggering the effect fuse
-				pub::SpaceObj::SetRelativeHealth(info.target, 0.5f);
+				pub::SpaceObj::SetRelativeHealth(info.target, 0.4f);
 
 				if (info.beenWarned)
 				{
@@ -302,8 +300,26 @@ namespace Plugins::Hacking
 		}
 	}
 
+	// Function: Ticks regularly and cycles through the possible objective targets.
 	void GlobalTimerTick()
 	{
+		for (auto& list : global->solars | std::views::values)
+		{
+			// TODO: Check here the satellite isn't involved in an active hack before adjusting it's HP back to 1
+			// TODO: This seems to be returning 0 sometimes.
+			if (list.rotatingSolars[list.currentIndex] != 0)
+			{
+				pub::SpaceObj::SetRelativeHealth(list.rotatingSolars[list.currentIndex], 1.f);
+			}
+
+			list.currentIndex++;
+			AddLog(LogType::Normal, LogLevel::Debug, std::format("Cycling a list hack target to {}", list.rotatingSolars[list.currentIndex]));
+			if (list.currentIndex == list.rotatingSolars.size())
+			{
+				list.currentIndex = 0;
+			}
+			pub::SpaceObj::SetRelativeHealth(list.rotatingSolars[list.currentIndex], 0.6f);
+		}
 	}
 
 	// What happens when our /hack command is called by a player
@@ -324,6 +340,7 @@ namespace Plugins::Hacking
 		}
 
 		// Check if the player has a valid target
+
 		const auto res = Hk::Player::GetTarget(client);
 		if (res.has_error())
 		{
@@ -331,8 +348,7 @@ namespace Plugins::Hacking
 			return;
 		}
 		auto target = res.value();
-		uint archetypeId;
-		pub::SpaceObj::GetSolarArchetypeID(target, archetypeId);
+		// Get the in-space nickname of the hackable object from the system file.
 
 		// Check if the player is within hackingInitiateRadius
 		if (bool inRange = IsInSolarRange(client, target, global->config->hackingInitiateRadius); !inRange)
@@ -342,9 +358,19 @@ namespace Plugins::Hacking
 		}
 
 		// Check if the selected target's archetypeId matches what we've defined in the config.
-		if (archetypeId != global->targetHash)
+		bool solarFound = false;
+		for (auto& i : global->solars | std::views::values)
 		{
-			PrintUserCmdText(client, L"The target you have selected is not hackable, please select a valid target.");
+			if (i.rotatingSolars[i.currentIndex] == target)
+			{
+				solarFound = true;
+				break;
+			}
+		}
+
+		if (!solarFound)
+		{
+			PrintUserCmdText(client, L"The target you have selected is not currently hackable, please select a valid target.");
 			return;
 		}
 

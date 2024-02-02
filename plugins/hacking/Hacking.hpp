@@ -57,9 +57,10 @@ namespace Plugins::Hacking
 		std::vector<uint> spawnedNpcList;
 	};
 
-	struct InitialObjectiveSolars
+	struct ObjectiveSolars
 	{
 		int time = 0;
+		uint currentIndex = 0;
 		std::vector<uint> rotatingSolars;
 	};
 
@@ -72,6 +73,6 @@ namespace Plugins::Hacking
 		std::array<HackInfo, 255> activeHacks;
 		Plugins::Npc::NpcCommunicator* npcCommunicator = nullptr;
 		std::unordered_map<uint, std::vector<std::string>> guardNpcMap;
-		std::map<std::string, InitialObjectiveSolars> solars;
+		std::map<std::string, ObjectiveSolars> solars;
 	};
 } // namespace Plugins::Hacking
