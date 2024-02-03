@@ -25,10 +25,8 @@
 #include "Hacking.hpp"
 #include <ranges>
 
+// TODO: Fuses are inconsistent in space, find a way to have these be consistent.
 // TODO: General pass on variable names
-// TODO: Prevent other players from attempting to hack the satellite at the same time.
-// TODO: Satellite cycling per system: Ensure health on active hack target is not tampered with
-// TODO: Check activehacks and cover for when a hacking is ongoing and the satellites cycle
 
 namespace Plugins::Hacking
 {
@@ -65,11 +63,11 @@ namespace Plugins::Hacking
 			global->pluginActive = false;
 			AddLog(LogType::Normal, LogLevel::Err, "NPC.dll must be loaded for this plugin to function.");
 		}
-		for (const auto& [key, value] : global->config->configGuardNpcMap)
+		for (const auto& [key, value] : global->config->guardNpcMap)
 		{
 			global->guardNpcMap[MakeId(key.c_str())] = value;
 		}
-		for (const auto& [key, value] : global->config->configInitialObjectiveSolars)
+		for (const auto& [key, value] : global->config->initialObjectiveSolars)
 		{
 			ObjectiveSolarCategories solars;
 			for (const auto& id : value)
@@ -256,7 +254,7 @@ namespace Plugins::Hacking
 			{
 				// Notify the player, play an audio cue, turn off the fuse and reset the timer, failing the objective.
 				PrintUserCmdText(client, L"You have left the area, the hack has failed.");
-				Hk::Client::PlaySoundEffect(client, CreateID("bm_hack_failed"));
+				Hk::Client::PlaySoundEffect(client, CreateID("ui_select_remove"));
 				pub::SpaceObj::SetRelativeHealth(info.target, 1.f);
 				info.time = 0;
 				for (auto& i : global->solars | std::views::values)
@@ -276,7 +274,7 @@ namespace Plugins::Hacking
 				{
 					// Notify the player, play an audio cue, turn off the fuses, reset the timer and the warning flag, failing the objective.
 					PrintUserCmdText(client, L"You're out of range, the hack has failed.");
-					Hk::Client::PlaySoundEffect(client, CreateID("bm_hack_failed"));
+					Hk::Client::PlaySoundEffect(client, CreateID("ui_select_remove"));
 					UnLightShipFuse(client, global->config->shipFuse);
 					pub::SpaceObj::SetRelativeHealth(info.target, 1.f);
 					info.time = 0;
@@ -291,7 +289,7 @@ namespace Plugins::Hacking
 					// Warn the player they're out of range for a cycle and set the beenWarned variable.
 					PrintUserCmdText(client, L"Warning, you are moving out of range, the hack will fail if you don't get closer.");
 					// Play a sound effect for the player to telegraph that they're leaving the area.
-					Hk::Client::PlaySoundEffect(client, CreateID("bm_hack_warn"));
+					Hk::Client::PlaySoundEffect(client, CreateID("ui_filter_operation"));
 					info.beenWarned = true;
 					pub::SpaceObj::SetRelativeHealth(info.target, 0.4f);
 				}
@@ -312,8 +310,8 @@ namespace Plugins::Hacking
 	{
 		for (auto& list : global->solars | std::views::values)
 		{
-			// TODO: This seems to be returning 0 sometimes.
-			if (list.rotatingSolars[list.currentIndex].solar != 0 && list.rotatingSolars[list.currentIndex].isHacking == false)
+			if (std::ranges::find_if(global->activeHacks,
+			        [list](const HackInfo& item) { return item.target == list.rotatingSolars[list.currentIndex].solar; }) == global->activeHacks.end())
 			{
 				pub::SpaceObj::SetRelativeHealth(list.rotatingSolars[list.currentIndex].solar, 1.f);
 			}
@@ -325,6 +323,7 @@ namespace Plugins::Hacking
 				list.currentIndex = 0;
 			}
 			pub::SpaceObj::SetRelativeHealth(list.rotatingSolars[list.currentIndex].solar, 0.6f);
+			list.rotatingSolars[list.currentIndex].isHacked = false;
 		}
 	}
 
@@ -354,8 +353,6 @@ namespace Plugins::Hacking
 			return;
 		}
 		auto target = res.value();
-		// Get the in-space nickname of the hackable object from the system file.
-
 		// Check if the player is within hackingInitiateRadius
 		if (bool inRange = IsInSolarRange(client, target, global->config->hackingInitiateRadius); !inRange)
 		{
@@ -456,13 +453,12 @@ using namespace Plugins::Hacking;
 
 // Generates the JSON file
 REFL_AUTO(type(Config), field(hackableSolarArchetype), field(hackingStartedMessage), field(hackingFinishedMessage), field(hackingMessageRadius),
-    field(hackingTime), field(rewardCashMin), field(rewardCashMax), field(hackingTime), field(guardNpcPersistTime), field(configGuardNpcMap),
-    field(minNpcGuards), field(maxNpcGuards), field(hackingSustainRadius), field(hackingInitiateRadius), field(configGuardNpcMap),
-    field(configInitialObjectiveSolars), field(useFuses), field(shipFuse));
+    field(hackingTime), field(rewardCashMin), field(rewardCashMax), field(hackingTime), field(guardNpcPersistTime), field(minNpcGuards), field(maxNpcGuards),
+    field(hackingSustainRadius), field(hackingInitiateRadius), field(guardNpcMap), field(initialObjectiveSolars), field(useFuses), field(shipFuse));
 
 DefaultDllMainSettings(LoadSettings);
 
-const std::vector<Timer> timers = {{ObjectiveTimerTick, 5}, {GlobalTimerTick, 60}};
+const std::vector<Timer> timers = {{ObjectiveTimerTick, 5}, {GlobalTimerTick, 240}};
 extern "C" EXPORT void ExportPluginInfo(PluginInfo* pi)
 {
 	// Full name of your plugin

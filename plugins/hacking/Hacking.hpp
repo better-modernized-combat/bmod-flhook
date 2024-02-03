@@ -47,10 +47,10 @@ namespace Plugins::Hacking
 		//! The fuse to attach to the ship (If in use)
 		std::string shipFuse = "bm_hack_ship_fuse";
 		//! A Map of which NPCs can spawn for which factions when guarding objectives
-		std::map<std::string, std::vector<std::string>> configGuardNpcMap {
+		std::map<std::string, std::vector<std::string>> guardNpcMap {
 		    {"li_n_grp", {{"l_defender"}, {"l_patriot"}, {"l_guardian"}}}, {"fc_x_grp", {{"x_hawk"}, {"x_falcon"}, {"x_eagle"}}}};
 		//! A Map of which hackable solars, and the system that they are in.
-		std::map<std::string, std::vector<std::string>> configInitialObjectiveSolars {
+		std::map<std::string, std::vector<std::string>> initialObjectiveSolars {
 		    {"Li03", {{"bm_li03_hackable_1"}, {"bm_li03_hackable_2"}, {"bm_li03_hackable_3"}}},
 		    {"Li01", {{"bm_li01_hackable_1"}, {"bm_li01_hackable_2"}, {"bm_li01_hackable_3"}}}};
 	};
