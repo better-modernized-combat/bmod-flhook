@@ -47,13 +47,12 @@ namespace Plugins::Hacking
 		auto config = Serializer::JsonToObject<Config>();
 		global->config = std::make_unique<Config>(std::move(config));
 
-		// Checks to see if the config file is missing valuesprevents the plugin from loading further if it has not.
-		if (global->config->hackableSolarArchetype.empty() || global->config->hackingStartedMessage.empty() || global->config->hackingFinishedMessage.empty() ||
-		    !global->config->hackingTime || !global->config->rewardCashMin || !global->config->rewardCashMax || !global->config->guardNpcPersistTime)
+		// Checks if the configured hacking time value is valid
+		if ((global->config->hackingTime % 5) != 0)
 		{
 			global->pluginActive = false;
+			AddLog(LogType::Normal, LogLevel::Err, "Hacking time must be a multiple of 5.");
 		}
-		global->targetHash = CreateID(global->config->hackableSolarArchetype.c_str());
 
 		// Checks to see if the NPC.dll IPC interface has been made availlable and prevents the plugin from loading further if it has not.
 		global->npcCommunicator =
@@ -127,11 +126,11 @@ namespace Plugins::Hacking
 		}
 
 		// Check if the player is within distance of the target solar
-		if (Hk::Math::Distance3D(playerPos.value().first, solarPos.value().first) < distance)
+		if (!(Hk::Math::Distance3D(playerPos.value().first, solarPos.value().first) < distance))
 		{
-			return true;
+			return false;
 		}
-		return false;
+		return true;
 	}
 
 	// Function: Spawns ships between min and max of a given type for a given faction. Picks randomly from the list for that faction defined in the config
@@ -172,10 +171,8 @@ namespace Plugins::Hacking
 		if (!info.time)
 		{
 			// Grab all the information needed to populate the proximity message sent to the players:
-			auto hackerEndName = Hk::Client::GetCharacterNameByID(client).value();
-			auto hackerEndPos = Hk::Solar::GetLocation(client, IdType::Client).value().first;
-			auto hackerEndSystem = Hk::Solar::GetSystemBySpaceId(info.target).value();
-			auto sectorEndCoordinate = Hk::Math::VectorToSectorCoord<std::wstring>(hackerEndSystem, hackerEndPos);
+			auto sectorEndCoordinate = Hk::Math::VectorToSectorCoord<std::wstring>(
+			    Hk::Solar::GetSystemBySpaceId(info.target).value(), Hk::Solar::GetLocation(client, IdType::Client).value().first);
 			int npcReputation;
 			pub::SpaceObj::GetRep(info.target, npcReputation);
 			uint npcFaction;
@@ -185,13 +182,12 @@ namespace Plugins::Hacking
 			auto realName = Hk::Message::GetWStringFromIdS(npcIds);
 
 			// Send the message to everyone within hackingMessageRadius
-			auto formattedEndHackMessage =
-			    std::vformat(global->config->hackingFinishedMessage, std::make_wformat_args(hackerEndName, sectorEndCoordinate, realName));
+			auto formattedEndHackMessage = std::vformat(global->config->hackingFinishedMessage,
+			    std::make_wformat_args(Hk::Client::GetCharacterNameByID(client).value(), sectorEndCoordinate, realName));
 			PrintLocalUserCmdText(client, formattedEndHackMessage, global->config->hackingMessageRadius);
 
 			// Adjust the hacker's reputation with the owning faction by -0.05
-			auto hackerOriginalRep = Hk::Player::GetRep(client, npcFaction);
-			auto hackerNewRep = hackerOriginalRep.value() - 0.05f;
+			auto hackerNewRep = Hk::Player::GetRep(client, npcFaction).value() - 0.05f;
 			int playerRepInstance;
 			pub::Player::GetRep(client, playerRepInstance);
 			pub::Reputation::SetReputation(playerRepInstance, npcFaction, hackerNewRep);
@@ -228,7 +224,6 @@ namespace Plugins::Hacking
 	// Function: handles events that occur after the initial objective has been started and events that occur as the completion timer counts down.
 	void ObjectiveTimerTick()
 	{
-		// TODO: put in warning for non multiple of 5 values with these times
 		// Start the timer
 		for (auto client = 0u; client != global->activeHacks.size(); client++)
 		{
@@ -236,17 +231,18 @@ namespace Plugins::Hacking
 			info.time -= 5;
 			if (info.time < 0)
 			{
-				if (info.time == (global->config->guardNpcPersistTime * -1))
-				{
-					for (auto obj : info.spawnedNpcList)
-					{
-						// TODO: Make the NPCs here really cloak rather than just despawning
-						pub::SpaceObj::Destroy(obj, VANISH);
-						Hk::Client::PlaySoundEffect(client, CreateID("cloak_rh_fighter"));
-					}
-					CleanUp(info);
-				}
 				continue;
+			}
+
+			if (info.time == (global->config->guardNpcPersistTime * -1))
+			{
+				for (auto obj : info.spawnedNpcList)
+				{
+					// TODO: Make the NPCs here really cloak rather than just despawning
+					pub::SpaceObj::Destroy(obj, VANISH);
+					Hk::Client::PlaySoundEffect(client, CreateID("cloak_rh_fighter"));
+				}
+				CleanUp(info);
 			}
 
 			// Checks if the player has a ship before proceeding. This handles disconnects, crashing and docking.
@@ -293,8 +289,6 @@ namespace Plugins::Hacking
 					info.beenWarned = true;
 					pub::SpaceObj::SetRelativeHealth(info.target, 0.4f);
 				}
-
-				continue;
 			}
 
 			// Reset the beenWarned variable when the hack ends or fails.
@@ -345,7 +339,6 @@ namespace Plugins::Hacking
 		}
 
 		// Check if the player has a valid target
-
 		const auto res = Hk::Player::GetTarget(client);
 		if (res.has_error())
 		{
@@ -401,16 +394,14 @@ namespace Plugins::Hacking
 		Hk::Client::PlaySoundEffect(client, CreateID("ui_begin_scan"));
 
 		// Start the Hack, sending a message to everyone within the hackingStartedMessage radius.
-
 		for (auto& i : global->solars | std::views::values)
 		{
 			i.rotatingSolars[i.currentIndex].isHacking = true;
 		}
-		auto hackerName = Hk::Client::GetCharacterNameByID(client).value();
 		auto hackerPos = Hk::Solar::GetLocation(client, IdType::Client).value().first;
 		auto hackerSystem = Hk::Solar::GetSystemBySpaceId(target).value();
-		auto sectorCoordinate = Hk::Math::VectorToSectorCoord<std::wstring>(hackerSystem, hackerPos);
-		auto formattedStartHackMessage = std::vformat(global->config->hackingStartedMessage, std::make_wformat_args(hackerName, sectorCoordinate));
+		auto formattedStartHackMessage = std::vformat(global->config->hackingStartedMessage,
+		    std::make_wformat_args(Hk::Client::GetCharacterNameByID(client).value(), Hk::Math::VectorToSectorCoord<std::wstring>(hackerSystem, hackerPos)));
 		PrintLocalUserCmdText(client, formattedStartHackMessage, global->config->hackingMessageRadius);
 
 		// Get the solar's reputation
@@ -452,7 +443,7 @@ namespace Plugins::Hacking
 using namespace Plugins::Hacking;
 
 // Generates the JSON file
-REFL_AUTO(type(Config), field(hackableSolarArchetype), field(hackingStartedMessage), field(hackingFinishedMessage), field(hackingMessageRadius),
+REFL_AUTO(type(Config), field(hackingStartedMessage), field(hackingFinishedMessage), field(hackingMessageRadius),
     field(hackingTime), field(rewardCashMin), field(rewardCashMax), field(hackingTime), field(guardNpcPersistTime), field(minNpcGuards), field(maxNpcGuards),
     field(hackingSustainRadius), field(hackingInitiateRadius), field(guardNpcMap), field(initialObjectiveSolars), field(useFuses), field(shipFuse));
 
@@ -461,9 +452,7 @@ DefaultDllMainSettings(LoadSettings);
 const std::vector<Timer> timers = {{ObjectiveTimerTick, 5}, {GlobalTimerTick, 240}};
 extern "C" EXPORT void ExportPluginInfo(PluginInfo* pi)
 {
-	// Full name of your plugin
 	pi->name("Hacking");
-	// Shortened name, all lower case, no spaces. Abbreviation when possible.
 	pi->shortName("Hacking");
 	pi->mayUnload(true);
 	pi->commands(&commands);

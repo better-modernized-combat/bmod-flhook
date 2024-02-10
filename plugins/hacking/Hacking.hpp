@@ -15,8 +15,6 @@ namespace Plugins::Hacking
 		std::string File() override { return "config/hacking.json"; }
 
 		// Reflectable fields
-		//! Hackable solar archetypes
-		std::string hackableSolarArchetype = "bm_hackable_sat";
 		//! Message sent to the local area when the hack starts.
 		std::wstring hackingStartedMessage = L"A communications buoy is being hacked by {0} in sector {1}!";
 		//! Message sent to the local area when the hack ends.
@@ -82,7 +80,6 @@ namespace Plugins::Hacking
 		std::unique_ptr<Config> config = nullptr;
 		ReturnCode returnCode = ReturnCode::Default;
 		bool pluginActive = true;
-		uint targetHash = 0;
 		std::array<HackInfo, 255> activeHacks;
 		Plugins::Npc::NpcCommunicator* npcCommunicator = nullptr;
 		std::unordered_map<uint, std::vector<std::string>> guardNpcMap;
