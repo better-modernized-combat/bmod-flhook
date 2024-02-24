@@ -5,13 +5,16 @@
 
 namespace Plugins::Crafting
 {
-	const auto global = std::make_unique<Global>();
+	const std::unique_ptr<Global> global = std::make_unique<Global>();
 
 	void LoadSettings()
 	{
 		// Load JSON config
 		auto config = Serializer::JsonToObject<Config>();
 		global->config = std::make_unique<Config>(std::move(config));
+
+		// Create tables
+		CreateSqlTables();
 	}
 
 } // namespace Plugins::Crafting
@@ -24,9 +27,7 @@ DefaultDllMainSettings(LoadSettings);
 
 extern "C" EXPORT void ExportPluginInfo(PluginInfo* pi)
 {
-	// Full name of your plugin
 	pi->name("Crafting");
-	// Shortened name, all lower case, no spaces. Abbreviation when possible.
 	pi->shortName("crafting");
 	pi->mayUnload(true);
 	pi->returnCode(&global->returnCode);
