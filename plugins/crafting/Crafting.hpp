@@ -24,7 +24,11 @@ namespace Plugins::Crafting
 		std::unique_ptr<Config> config = nullptr;
 		ReturnCode returnCode = ReturnCode::Default;
 
+		// Database containing crafting processes if server goes offline
 		SQLite::Database sql = SqlHelpers::Create("crafting.sqlite");
+
+		// Crafting Processes at runtime
+		std::vector<CraftingProcess> runningCraftingProcesses;
 	};
 
 	extern const std::unique_ptr<Global> global;
@@ -33,4 +37,5 @@ namespace Plugins::Crafting
 	int64 SqlAddCraftingProcess(const CraftingProcess& craftingProcess);
 	int64 SqlRemoveCraftingProcess(const int processId);
 	CraftingProcess SqlGetCraftingProcess(const int processId);
+	std::vector<CraftingProcess> SqlGetAllCraftingProcesses();
 } // namespace Plugins::Crafting

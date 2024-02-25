@@ -58,4 +58,23 @@ namespace Plugins::Crafting
 
 		return result;
 	}
+
+	std::vector<CraftingProcess> SqlGetAllCraftingProcesses()
+	{
+		std::vector<CraftingProcess> result;
+
+		SQLite::Statement query(global->sql, "SELECT * FROM processes;");
+
+		while (query.executeStep())
+		{
+			CraftingProcess toAdd;
+			toAdd.processId = query.getColumn(0).getInt();
+			toAdd.playerNick = stows(query.getColumn(1).getString());
+			toAdd.finishTime = static_cast<time_t>(query.getColumn(2).getInt());
+			toAdd.baseId = static_cast<uint>(query.getColumn(3).getInt());
+			result.push_back(toAdd);
+		}
+
+		return result;
+	}
 } // namespace Plugins::Crafting
