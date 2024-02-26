@@ -13,10 +13,31 @@ namespace Plugins::Crafting
 		uint baseId;
 	};
 
+	struct CraftingRecipe final : Reflectable
+	{
+		std::wstring itemNick = L"missile01_mark01";
+		uint cost = 10;
+		float requiredRep = 0.0;
+		std::vector<std::wstring> requiredItems = {L"commodity_scrap_metal", L"commodity_scrap_metal", L"commodity_basic_alloys"};
+		time_t craftingDuration = 60;
+	};
+
+	struct BaseModifier final : Reflectable
+	{
+		std::wstring baseNick = L"Br01_01_Base";
+		float timeMod = 2.0;
+		float costMod = 0.5;
+		std::vector<std::wstring> availableItems = {L"missile01_mark01"};
+	};
+
 	// Loadable json configuration
 	struct Config : Reflectable
 	{
 		std::string File() override { return "config/crafting.json"; }
+
+		// Example crafting recipe & base modifier for json config
+		std::vector<CraftingRecipe> craftingRecipes = {CraftingRecipe()};
+		std::vector<BaseModifier> baseModifiers = {BaseModifier()};
 	};
 
 	struct Global
