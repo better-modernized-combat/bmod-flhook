@@ -27,7 +27,8 @@
 
 // TODO: Fuses are inconsistent in space, find a way to have these be consistent.
 // TODO: General pass on variable names
-
+// TODO: Hack checks not working properly, when a target is already hacked, we get 'someone else is already trying to hack this target' when we should be
+// getting 'target has been hacked' message
 namespace Plugins::Hacking
 {
 	const auto global = std::make_unique<Global>();
@@ -231,18 +232,18 @@ namespace Plugins::Hacking
 			info.time -= 5;
 			if (info.time < 0)
 			{
-				continue;
-			}
-
-			if (info.time == (global->config->guardNpcPersistTime * -1))
-			{
-				for (auto obj : info.spawnedNpcList)
+				if (info.time == (global->config->guardNpcPersistTime * -1))
 				{
-					// TODO: Make the NPCs here really cloak rather than just despawning
-					pub::SpaceObj::Destroy(obj, VANISH);
-					Hk::Client::PlaySoundEffect(client, CreateID("cloak_rh_fighter"));
+					for (auto obj : info.spawnedNpcList)
+					{
+						// TODO: Make the NPCs here really cloak rather than just despawning
+						pub::SpaceObj::Destroy(obj, VANISH);
+						Hk::Client::PlaySoundEffect(client, CreateID("cloak_rh_fighter"));
+					}
+					CleanUp(info);
 				}
-				CleanUp(info);
+
+				continue;
 			}
 
 			// Checks if the player has a ship before proceeding. This handles disconnects, crashing and docking.
@@ -443,9 +444,9 @@ namespace Plugins::Hacking
 using namespace Plugins::Hacking;
 
 // Generates the JSON file
-REFL_AUTO(type(Config), field(hackingStartedMessage), field(hackingFinishedMessage), field(hackingMessageRadius),
-    field(hackingTime), field(rewardCashMin), field(rewardCashMax), field(hackingTime), field(guardNpcPersistTime), field(minNpcGuards), field(maxNpcGuards),
-    field(hackingSustainRadius), field(hackingInitiateRadius), field(guardNpcMap), field(initialObjectiveSolars), field(useFuses), field(shipFuse));
+REFL_AUTO(type(Config), field(hackingStartedMessage), field(hackingFinishedMessage), field(hackingMessageRadius), field(hackingTime), field(rewardCashMin),
+    field(rewardCashMax), field(hackingTime), field(guardNpcPersistTime), field(minNpcGuards), field(maxNpcGuards), field(hackingSustainRadius),
+    field(hackingInitiateRadius), field(guardNpcMap), field(initialObjectiveSolars), field(useFuses), field(shipFuse));
 
 DefaultDllMainSettings(LoadSettings);
 
