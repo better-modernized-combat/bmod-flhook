@@ -99,26 +99,49 @@ namespace Plugins::Crafting
 		// TODO: Check if each item has only one recipe defined
 	}
 
-	bool isCraftable(ClientId client, BaseId base, const CraftingRecipe& craftingRecipe)
+	bool isCraftable(ClientId client, BaseId baseId, const CraftingRecipe& craftingRecipe)
 	{
 		// 1. Has the player enough money?
 		if (Hk::Player::GetCash(client).value_or(0) < craftingRecipe.cost)
 		{
-			PrintUserCmdText(client, L"Insufficient Cash.");
 			return false;
 		}
 
 		// 2. Is the player reputable enough at the current base?
-		if (Hk::Player::GetRep(client, Hk::Solar::GetAffiliation(base).value()).value_or(0.0) < craftingRecipe.requiredRep)
+		// [...]
+		// As of right now there is something wrong with fetching rep, which
+		// means this might have to be added as a feature later.
+
+		// 3. Does player have all the items required?
+		PrintUserCmdText(client, L"1");
+		int remainingHoldSize;
+		auto cargo = Hk::Player::EnumCargo(client, remainingHoldSize);
+		PrintUserCmdText(client, L"2");
+		std::vector<uint> cargoIArchIds;
+		for (const auto& cargoItem : cargo.value())
 		{
-			PrintUserCmdText(client, L"Insufficient Rep.");
-			PrintUserCmdText(client, std::to_wstring(Hk::Player::GetRep(client, Hk::Solar::GetAffiliation(base).value()).value()));
+			cargoIArchIds.push_back(cargoItem.iArchId);
+		}
+		PrintUserCmdText(client, L"3");
+		std::vector<uint> requiredItemsCopy;
+		for (const auto& itemNick : craftingRecipe.requiredItems)
+		{
+			requiredItemsCopy.push_back(CreateID(wstos(itemNick).c_str()));
+		}
+		PrintUserCmdText(client, L"4");
+
+		// Check if all elements of vec2 are present in vec1
+		bool containsAll = std::ranges::all_of(cargoIArchIds, [requiredItemsCopy](const uint elem) {
+			return std::ranges::find(requiredItemsCopy, elem) != requiredItemsCopy.end();
+		});
+		PrintUserCmdText(client, L"5");
+		if (!containsAll)
+		{
+			PrintUserCmdText(client, L"OHNO");
 			return false;
 		}
 
-		// 3. Does player have all the items required?
-		// TODO: see above
-
+		PrintUserCmdText(client, L"6");
 		return true;
 	}
 
@@ -135,11 +158,11 @@ namespace Plugins::Crafting
 		}
 		else if (baseModifer.has_value() && !all)
 		{
-			auto itemCopy = baseModifer.value().availableItems;
+			std::vector<std::wstring> itemCopy(baseModifer.value().availableItems);
 			std::erase_if(itemCopy,
 			    [client, base](std::wstring const& itemNick) { return isCraftable(client, base, ItemNickToCraftingRecipe(itemNick).value()); });
-			// TODO: Does not reach this for some reason?
-			PrintUserCmdText(client, L"Happened 2");
+			//TODO the above does not get erased properly somehow
+
 			for (const auto& itemNick : itemCopy)
 			{
 				PrintUserCmdText(client, itemNick);
