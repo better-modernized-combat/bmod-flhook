@@ -167,7 +167,7 @@ namespace Plugins::Hacking
 	}
 
 	// Function: This function is called when an initial objective is completed.
-	void InitialObjectiveComplete(const HackInfo& info, uint client)
+	void InitialObjectiveComplete(HackInfo& info, uint client)
 	{
 		if (!info.time)
 		{
@@ -212,6 +212,19 @@ namespace Plugins::Hacking
 			        rewardPos.y,
 			        rewardPos.z);
 			PrintUserCmdText(client, formattedHackRewardMessage);
+
+			for (auto& i : global->solars | std::views::values)
+			{
+				for (auto& solar : i.rotatingSolars)
+				{
+					if (solar.solar == info.target)
+					{
+						solar.isHacking = false;
+						solar.isHacked = true;
+						break;
+					}
+				}
+			}
 
 			// Play some sounds to telegraph the successful completion of the hack.
 			Hk::Client::PlaySoundEffect(client, CreateID("ui_receive_money"));
@@ -358,22 +371,27 @@ namespace Plugins::Hacking
 		bool solarFound = false;
 		for (auto& i : global->solars | std::views::values)
 		{
-			if (i.rotatingSolars[i.currentIndex].isHacking == true)
+			auto& solar = i.rotatingSolars[i.currentIndex];
+
+			if (solar.solar != target)
 			{
-				PrintUserCmdText(client, L"Someone else is already attempting to hack this target.");
-				return;
+				continue;
 			}
-			if (i.rotatingSolars[i.currentIndex].isHacked == true)
+
+			if (solar.isHacked)
 			{
 				PrintUserCmdText(client, L"Someone has recently hacked this target and it has been secured.");
 				return;
 			}
 
-			if (i.rotatingSolars[i.currentIndex].solar == target)
+			if (solar.isHacking)
 			{
-				solarFound = true;
-				break;
+				PrintUserCmdText(client, L"Someone else is already attempting to hack this target.");
+				return;
 			}
+
+			solarFound = true;
+			break;
 		}
 
 		if (!solarFound)
