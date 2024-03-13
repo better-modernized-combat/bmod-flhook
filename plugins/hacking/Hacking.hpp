@@ -3,19 +3,13 @@
 #include <FLHook.hpp>
 #include <plugin.h>
 #include "../npc_control/NPCControl.h"
+#include <ranges>
+
 // #include "../bountyhunt/BountyHunt.h"
 // #include "../death_penalty/DeathPenalty.h"
 
 namespace Plugins::Hacking
 {
-
-	void FiveSecondTick();
-	void TwentyMinuteTick();
-	bool IsInSolarRange(ClientId client, uint solar, float distance);
-	void LightShipFuse(uint client, const std::string& fuse);
-	void UnLightShipFuse(uint client, const std::string& fuse);
-	int RandomNumber(int min, int max);
-
 	//! Configurable fields for this plugin
 	struct Config final : Reflectable
 	{
@@ -100,4 +94,12 @@ namespace Plugins::Hacking
 	};
 
 	extern const std::unique_ptr<Global> global;
+
+	void FiveSecondTick();
+	void TwentyMinuteTick();
+	bool IsInSolarRange(ClientId client, uint solar, float distance);
+	void LightShipFuse(uint client, const std::string& fuse);
+	void UnLightShipFuse(uint client, const std::string& fuse);
+	int RandomNumber(int min, int max);
+	void CompleteObjective(HackInfo& info, uint client);
 } // namespace Plugins::Hacking

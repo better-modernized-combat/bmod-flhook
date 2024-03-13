@@ -69,6 +69,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ClCompile Include="Hacking.cpp" />
+    <ClCompile Include="ObjectiveState.cpp" />
     <ClCompile Include="Timers.cpp" />
   </ItemGroup>
   <ItemGroup>
