@@ -27,11 +27,9 @@
 
 // TODO: Fuses are inconsistent in space, find a way to have these be consistent.
 // TODO: General pass on variable names
-// TODO: Hack checks not working properly, when a target is already hacked, we get 'someone else is already trying to hack this target' when we should be
-// getting 'target has been hacked' message
 namespace Plugins::Hacking
 {
-	const auto global = std::make_unique<Global>();
+	const std::unique_ptr<Global> global = std::make_unique<Global>();
 
 	// Function: Generates a random int between min and max
 	int RandomNumber(int min, int max)
@@ -63,10 +61,12 @@ namespace Plugins::Hacking
 			global->pluginActive = false;
 			AddLog(LogType::Normal, LogLevel::Err, "NPC.dll must be loaded for this plugin to function.");
 		}
+
 		for (const auto& [key, value] : global->config->guardNpcMap)
 		{
 			global->guardNpcMap[MakeId(key.c_str())] = value;
 		}
+
 		for (const auto& [key, value] : global->config->initialObjectiveSolars)
 		{
 			ObjectiveSolarCategories solars;
@@ -74,17 +74,10 @@ namespace Plugins::Hacking
 			{
 				solars.rotatingSolars.emplace_back(CreateID(id.c_str()));
 			}
+
 			solars.currentIndex = RandomNumber(0, solars.rotatingSolars.size() - 1);
 			global->solars[key] = solars;
 		}
-	}
-
-	// Function: Cleans up after an objective is complete, removing any NPCs and resetting any active timers or fuses
-	void CleanUp(HackInfo& info)
-	{
-		pub::SpaceObj::SetRelativeHealth(info.target, 1.f);
-		info.spawnedNpcList.clear();
-		info.target = 0;
 	}
 
 	//  Function: Attaches and lights a fuse on a player ship
@@ -93,6 +86,7 @@ namespace Plugins::Hacking
 		auto playerShip = Hk::Player::GetShip(client).value();
 		IObjInspectImpl* inspect;
 		uint iDunno;
+
 		GetShipInspect(playerShip, inspect, iDunno);
 		Hk::Admin::LightFuse((IObjRW*)inspect, CreateID(fuse.c_str()), 0.f, 5.f, 0);
 	}
@@ -103,6 +97,7 @@ namespace Plugins::Hacking
 		auto playerShip = Hk::Player::GetShip(client).value();
 		IObjInspectImpl* inspect;
 		uint iDunno;
+
 		GetShipInspect(playerShip, inspect, iDunno);
 		Hk::Admin::UnLightFuse((IObjRW*)inspect, CreateID(fuse.c_str()));
 	}
@@ -131,7 +126,18 @@ namespace Plugins::Hacking
 		{
 			return false;
 		}
+
 		return true;
+	}
+
+	void ToggleCloak(uint npc, ushort cloak, bool state)
+	{
+		XActivateEquip ActivateEq;
+		ActivateEq.bActivate = state;
+		ActivateEq.iSpaceId = npc;
+		ActivateEq.sId = cloak;
+
+		Server.ActivateEquip(0, ActivateEq);
 	}
 
 	// Function: Spawns ships between min and max of a given type for a given faction. Picks randomly from the list for that faction defined in the config
@@ -141,7 +147,9 @@ namespace Plugins::Hacking
 		const auto spawnGuardNPCs = [pos, system, randomDist](const std::wstring& guardNpc) {
 			Vector guardNpcPos = {{pos.x + randomDist}, {pos.y + randomDist}, {pos.z + randomDist}};
 			Matrix defaultNpcRot = {{{1.f, 0, 0}, {0.f, 1.f, 0.f}, {0.f, 0.f, 1.f}}};
-			return global->npcCommunicator->CreateNpc(guardNpc, guardNpcPos, defaultNpcRot, system, true);
+
+			uint id = global->npcCommunicator->CreateNpc(guardNpc, guardNpcPos, defaultNpcRot, system, true);
+			return NpcInfo {id};
 		};
 
 		auto groupSize = Hk::Player::GetGroupMembers(client).value();
@@ -161,182 +169,26 @@ namespace Plugins::Hacking
 			{
 				auto randRes = RandomNumber(0, npcShipList.size() - 1);
 				const auto& npcToSpawn = npcShipList[randRes];
-				hack.spawnedNpcList.emplace_back(spawnGuardNPCs(stows(npcToSpawn)));
-			}
-		}
-	}
+				auto& spawnedNpc = hack.spawnedNpcList.emplace_back(spawnGuardNPCs(stows(npcToSpawn)));
 
-	// Function: This function is called when an initial objective is completed.
-	void InitialObjectiveComplete(HackInfo& info, uint client)
-	{
-		if (!info.time)
-		{
-			// Grab all the information needed to populate the proximity message sent to the players:
-			auto sectorEndCoordinate = Hk::Math::VectorToSectorCoord<std::wstring>(
-			    Hk::Solar::GetSystemBySpaceId(info.target).value(), Hk::Solar::GetLocation(client, IdType::Client).value().first);
-			int npcReputation;
-			pub::SpaceObj::GetRep(info.target, npcReputation);
-			uint npcFaction;
-			pub::Reputation::GetAffiliation(npcReputation, npcFaction);
-			uint npcIds;
-			pub::Reputation::GetGroupName(npcFaction, npcIds);
-			auto realName = Hk::Message::GetWStringFromIdS(npcIds);
+				auto* obj = reinterpret_cast<CShip*>(CObject::Find(spawnedNpc.npcId, CObject::Class::CSHIP_OBJECT));
+				auto manager = GetEquipManager(obj);
 
-			// Send the message to everyone within hackingMessageRadius
-			auto formattedEndHackMessage = std::vformat(global->config->hackingFinishedMessage,
-			    std::make_wformat_args(Hk::Client::GetCharacterNameByID(client).value(), sectorEndCoordinate, realName));
-			PrintLocalUserCmdText(client, formattedEndHackMessage, global->config->hackingMessageRadius);
-
-			// Adjust the hacker's reputation with the owning faction by -0.05
-			auto hackerNewRep = Hk::Player::GetRep(client, npcFaction).value() - 0.05f;
-			int playerRepInstance;
-			pub::Player::GetRep(client, playerRepInstance);
-			pub::Reputation::SetReputation(playerRepInstance, npcFaction, hackerNewRep);
-
-			// Pick a number between rewardCashMin and rewardCashMax and and credit the player that amount for completion of the hack.
-			auto randomCash = RandomNumber(global->config->rewardCashMin, global->config->rewardCashMax);
-			Hk::Player::AddCash(client, randomCash);
-
-			// Grab all the information needed to populate the private message to the player.
-			// TODO: Populate these fields properly
-			Vector rewardPos = {{200.f}, {200.f}, {200.f}};
-			auto rewardSystem = "Li03";
-			auto rewardSector = Hk::Math::VectorToSectorCoord<std::wstring>(CreateID(rewardSystem), rewardPos);
-
-			// Send a private message to the player notifying them of their randomCash reward and POI location.
-			auto formattedHackRewardMessage =
-			    std::format(L"{} credits diverted from local financial ansibles, a point of interest has been revealed in sector {} ({:.0f}, {:.0f}, {:.0f}).",
-			        randomCash,
-			        rewardSector,
-			        rewardPos.x,
-			        rewardPos.y,
-			        rewardPos.z);
-			PrintUserCmdText(client, formattedHackRewardMessage);
-
-			for (auto& i : global->solars | std::views::values)
-			{
-				for (auto& solar : i.rotatingSolars)
+				CEquipTraverser traverser {CEquip::Class::CloakingDevice};
+				auto equip = manager->Traverse(traverser);
+				if (equip)
 				{
-					if (solar.solar == info.target)
-					{
-						solar.isHacking = false;
-						solar.isHacked = true;
-						break;
-					}
-				}
-			}
-
-			// Play some sounds to telegraph the successful completion of the hack.
-			Hk::Client::PlaySoundEffect(client, CreateID("ui_receive_money"));
-			Hk::Client::PlaySoundEffect(client, CreateID("ui_end_scan"));
-			UnLightShipFuse(client, global->config->shipFuse);
-			// Turn off the solar fuse:
-			pub::SpaceObj::SetRelativeHealth(info.target, 1.f);
-		}
-	}
-
-	// Function: handles events that occur after the initial objective has been started and events that occur as the completion timer counts down.
-	void ObjectiveTimerTick()
-	{
-		// Start the timer
-		for (auto client = 0u; client != global->activeHacks.size(); client++)
-		{
-			auto& info = global->activeHacks[client];
-			info.time -= 5;
-			if (info.time < 0)
-			{
-				if (info.time == (global->config->guardNpcPersistTime * -1))
-				{
-					for (auto obj : info.spawnedNpcList)
-					{
-						// TODO: Make the NPCs here really cloak rather than just despawning
-						pub::SpaceObj::Destroy(obj, VANISH);
-						Hk::Client::PlaySoundEffect(client, CreateID("cloak_rh_fighter"));
-					}
-					CleanUp(info);
+					spawnedNpc.cloakId = equip->iSubObjId;
+					/*ToggleCloak(spawnedNpc.npcId, spawnedNpc.cloakId, false);*/
 				}
 
-				continue;
+				obj->Release();
 			}
-
-			// Checks if the player has a ship before proceeding. This handles disconnects, crashing and docking.
-			if (Hk::Player::GetShip(client).has_error())
-			{
-				// Notify the player, play an audio cue, turn off the fuse and reset the timer, failing the objective.
-				PrintUserCmdText(client, L"You have left the area, the hack has failed.");
-				Hk::Client::PlaySoundEffect(client, CreateID("ui_select_remove"));
-				pub::SpaceObj::SetRelativeHealth(info.target, 1.f);
-				info.time = 0;
-				for (auto& i : global->solars | std::views::values)
-				{
-					i.rotatingSolars[i.currentIndex].isHacking = false;
-				}
-				continue;
-			}
-
-			// Check if the player is in range of the solar while the hack is ongoing. There's a grace period for leaving the area where the player is warned.
-			if (!IsInSolarRange(client, info.target, global->config->hackingSustainRadius))
-			{
-				// Set the target's relative Health to half, triggering the effect fuse
-				pub::SpaceObj::SetRelativeHealth(info.target, 0.4f);
-
-				if (info.beenWarned)
-				{
-					// Notify the player, play an audio cue, turn off the fuses, reset the timer and the warning flag, failing the objective.
-					PrintUserCmdText(client, L"You're out of range, the hack has failed.");
-					Hk::Client::PlaySoundEffect(client, CreateID("ui_select_remove"));
-					UnLightShipFuse(client, global->config->shipFuse);
-					pub::SpaceObj::SetRelativeHealth(info.target, 1.f);
-					info.time = 0;
-					info.beenWarned = false;
-					for (auto& i : global->solars | std::views::values)
-					{
-						i.rotatingSolars[i.currentIndex].isHacking = false;
-					}
-				}
-				else
-				{
-					// Warn the player they're out of range for a cycle and set the beenWarned variable.
-					PrintUserCmdText(client, L"Warning, you are moving out of range, the hack will fail if you don't get closer.");
-					// Play a sound effect for the player to telegraph that they're leaving the area.
-					Hk::Client::PlaySoundEffect(client, CreateID("ui_filter_operation"));
-					info.beenWarned = true;
-					pub::SpaceObj::SetRelativeHealth(info.target, 0.4f);
-				}
-			}
-
-			// Reset the beenWarned variable when the hack ends or fails.
-			info.beenWarned = false;
-
-			// Complete the hack when the timer finishes.
-			InitialObjectiveComplete(info, client);
-		}
-	}
-
-	// Function: Ticks regularly and cycles through the possible objective targets.
-	void GlobalTimerTick()
-	{
-		for (auto& list : global->solars | std::views::values)
-		{
-			if (std::ranges::find_if(global->activeHacks,
-			        [list](const HackInfo& item) { return item.target == list.rotatingSolars[list.currentIndex].solar; }) == global->activeHacks.end())
-			{
-				pub::SpaceObj::SetRelativeHealth(list.rotatingSolars[list.currentIndex].solar, 1.f);
-			}
-
-			list.currentIndex++;
-			AddLog(LogType::Normal, LogLevel::Debug, std::format("Cycling a list hack target to {}", list.rotatingSolars[list.currentIndex].solar));
-			if (list.currentIndex == list.rotatingSolars.size())
-			{
-				list.currentIndex = 0;
-			}
-			pub::SpaceObj::SetRelativeHealth(list.rotatingSolars[list.currentIndex].solar, 0.6f);
-			list.rotatingSolars[list.currentIndex].isHacked = false;
 		}
 	}
 
 	// What happens when our /hack command is called by a player
-	void userCmdStartHack(ClientId& client)
+	void UserCmdStartHack(ClientId& client)
 	{
 		// Check to make sure the plugin has loaded dependencies and settings.
 		if (!global->pluginActive)
@@ -359,6 +211,7 @@ namespace Plugins::Hacking
 			PrintUserCmdText(client, L"You must select a valid target to use this function.");
 			return;
 		}
+
 		auto target = res.value();
 		// Check if the player is within hackingInitiateRadius
 		if (bool inRange = IsInSolarRange(client, target, global->config->hackingInitiateRadius); !inRange)
@@ -417,6 +270,7 @@ namespace Plugins::Hacking
 		{
 			i.rotatingSolars[i.currentIndex].isHacking = true;
 		}
+
 		auto hackerPos = Hk::Solar::GetLocation(client, IdType::Client).value().first;
 		auto hackerSystem = Hk::Solar::GetSystemBySpaceId(target).value();
 		auto formattedStartHackMessage = std::vformat(global->config->hackingStartedMessage,
@@ -438,10 +292,12 @@ namespace Plugins::Hacking
 
 		// Start the attached FX for the player and the hack
 		LightShipFuse(client, global->config->shipFuse);
+
 		// Sets the relative health of the target to half in order to play the hacking radius FX fuse. This is horrible, but seems to be our only option.
 		pub::SpaceObj::SetRelativeHealth(target, 0.5f);
 
 		// Set the target solar hostile to the player temporarily.
+		// TODO: Make this a function
 		int reputation;
 		pub::Player::GetRep(client, reputation);
 		int npcReputation;
@@ -454,7 +310,7 @@ namespace Plugins::Hacking
 
 	// Define usable chat commands here
 	const std::vector commands = {{
-	    CreateUserCommand(L"/hack", L"", userCmdStartHack, L"Starts a hacking session against a valid solar."),
+	    CreateUserCommand(L"/hack", L"", UserCmdStartHack, L"Starts a hacking session against a valid solar."),
 	}};
 
 } // namespace Plugins::Hacking
@@ -468,7 +324,7 @@ REFL_AUTO(type(Config), field(hackingStartedMessage), field(hackingFinishedMessa
 
 DefaultDllMainSettings(LoadSettings);
 
-const std::vector<Timer> timers = {{ObjectiveTimerTick, 5}, {GlobalTimerTick, 240}};
+const std::vector<Timer> timers = {{FiveSecondTick, 5}, {TwentyMinuteTick, 240}};
 extern "C" EXPORT void ExportPluginInfo(PluginInfo* pi)
 {
 	pi->name("Hacking");

@@ -9,6 +9,13 @@
 namespace Plugins::Hacking
 {
 
+	void FiveSecondTick();
+	void TwentyMinuteTick();
+	bool IsInSolarRange(ClientId client, uint solar, float distance);
+	void LightShipFuse(uint client, const std::string& fuse);
+	void UnLightShipFuse(uint client, const std::string& fuse);
+	int RandomNumber(int min, int max);
+
 	//! Configurable fields for this plugin
 	struct Config final : Reflectable
 	{
@@ -53,12 +60,18 @@ namespace Plugins::Hacking
 		    {"Li01", {{"bm_li01_hackable_1"}, {"bm_li01_hackable_2"}, {"bm_li01_hackable_3"}}}};
 	};
 
+	struct NpcInfo
+	{
+		uint npcId = 0;
+		ushort cloakId = 0;
+	};
+
 	struct HackInfo
 	{
 		uint target = 0;
 		int time = 0;
 		bool beenWarned = false;
-		std::vector<uint> spawnedNpcList;
+		std::vector<NpcInfo> spawnedNpcList;
 	};
 
 	struct ObjectiveSolars
@@ -85,4 +98,6 @@ namespace Plugins::Hacking
 		std::unordered_map<uint, std::vector<std::string>> guardNpcMap;
 		std::map<std::string, ObjectiveSolarCategories> solars;
 	};
+
+	extern const std::unique_ptr<Global> global;
 } // namespace Plugins::Hacking
