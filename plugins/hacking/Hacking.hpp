@@ -3,6 +3,7 @@
 #include <FLHook.hpp>
 #include <plugin.h>
 #include "../npc_control/NPCControl.h"
+#include "../solar_control/SolarControl.h"
 #include <ranges>
 
 // #include "../bountyhunt/BountyHunt.h"
@@ -89,6 +90,7 @@ namespace Plugins::Hacking
 		bool pluginActive = true;
 		std::array<HackInfo, 255> activeHacks;
 		Plugins::Npc::NpcCommunicator* npcCommunicator = nullptr;
+		Plugins::SolarControl::SolarCommunicator* solarCommunicator = nullptr;
 		std::unordered_map<uint, std::vector<std::string>> guardNpcMap;
 		std::map<std::string, ObjectiveSolarCategories> solars;
 	};

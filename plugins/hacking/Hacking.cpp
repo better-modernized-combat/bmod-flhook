@@ -61,6 +61,15 @@ namespace Plugins::Hacking
 			AddLog(LogType::Normal, LogLevel::Err, "NPC.dll must be loaded for this plugin to function.");
 		}
 
+		// Same for Solarcontrol
+		global->solarCommunicator = static_cast<Plugins::SolarControl::SolarCommunicator*>(
+		    PluginCommunicator::ImportPluginCommunicator(Plugins::SolarControl::SolarCommunicator::pluginName));
+		if (!global->solarCommunicator)
+		{
+			global->pluginActive = false;
+			AddLog(LogType::Normal, LogLevel::Err, "Solar.dll must be loaded for this plugin to function");
+		}
+
 		for (const auto& [key, value] : global->config->guardNpcMap)
 		{
 			global->guardNpcMap[MakeId(key.c_str())] = value;
