@@ -129,6 +129,7 @@ namespace Plugins::Hacking
 		return true;
 	}
 
+	// TODO: Get this working with NPCs (Currently server-client desync means this just allows them to shoot whilost invisible)
 	void ToggleCloak(uint npc, ushort cloak, bool state)
 	{
 		XActivateEquip ActivateEq;
