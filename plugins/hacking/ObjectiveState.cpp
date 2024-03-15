@@ -13,13 +13,18 @@ namespace Plugins::Hacking
 
 	void CreateRewardPointOfInterest(uint client)
 	{
+		uint systemId;
+		pub::Player::GetSystem(client, systemId);
+		auto zone = global->hashedObjectiveZoneList[RandomNumber(0, global->hashedObjectiveZoneList.size())];
+		auto zonePos = Universe::get_zone(zone)->vPos;
+
 		Vector rewardPos = {{200.f}, {200.f}, {200.f}};
 		auto rewardSystem = "Li03";
-		auto rewardSector = Hk::Math::VectorToSectorCoord<std::wstring>(CreateID(rewardSystem), rewardPos);
+		auto rewardSector = Hk::Math::VectorToSectorCoord<std::wstring>(CreateID(rewardSystem), zonePos);
 
 		// Send a private message to the player notifying them of their randomCash reward and POI location.
 		auto formattedHackRewardMessage =
-		    std::format(L"A point of interest has been revealed in sector {} ({:.0f}, {:.0f}, {:.0f}).", rewardSector, rewardPos.x, rewardPos.y, rewardPos.z);
+		    std::format(L"A point of interest has been revealed in sector {} ({:.0f}, {:.0f}, {:.0f}).", rewardSector, zonePos.x, zonePos.y, zonePos.z);
 		PrintUserCmdText(client, formattedHackRewardMessage);
 
 		// Random number 0, PoiType

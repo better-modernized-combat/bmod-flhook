@@ -86,6 +86,13 @@ namespace Plugins::Hacking
 			solars.currentIndex = RandomNumber(0, solars.rotatingSolars.size() - 1);
 			global->solars[key] = solars;
 		}
+
+		for (auto& item : global->config->objectiveZoneList)
+		{
+			auto zone = CreateID(item.c_str());
+			global->hashedObjectiveZoneList.insert(global->hashedObjectiveZoneList.begin(), zone);
+		}
+		AddLog(LogType::Normal, LogLevel::Debug, std::format("Loaded {} possible objective spawn locations", global->hashedObjectiveZoneList.size()));
 	}
 
 	//  Function: Attaches and lights a fuse on a player ship
@@ -329,7 +336,7 @@ using namespace Plugins::Hacking;
 // Generates the JSON file
 REFL_AUTO(type(Config), field(hackingStartedMessage), field(hackingFinishedMessage), field(hackingMessageRadius), field(hackingTime), field(rewardCashMin),
     field(rewardCashMax), field(hackingTime), field(guardNpcPersistTime), field(minNpcGuards), field(maxNpcGuards), field(hackingSustainRadius),
-    field(hackingInitiateRadius), field(guardNpcMap), field(initialObjectiveSolars), field(useFuses), field(shipFuse));
+    field(hackingInitiateRadius), field(guardNpcMap), field(initialObjectiveSolars), field(useFuses), field(shipFuse), field(objectiveZoneList));
 
 DefaultDllMainSettings(LoadSettings);
 

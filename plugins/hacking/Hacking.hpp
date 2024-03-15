@@ -53,6 +53,8 @@ namespace Plugins::Hacking
 		std::map<std::string, std::vector<std::string>> initialObjectiveSolars {
 		    {"Li03", {{"bm_li03_hackable_1"}, {"bm_li03_hackable_2"}, {"bm_li03_hackable_3"}}},
 		    {"Li01", {{"bm_li01_hackable_1"}, {"bm_li01_hackable_2"}, {"bm_li01_hackable_3"}}}};
+
+		std::vector<std::string> objectiveZoneList {{"zone_li03_destroy_vignette_1"}, {"zone_li03_destroy_vignette_2"}};
 	};
 
 	struct NpcInfo
@@ -93,6 +95,7 @@ namespace Plugins::Hacking
 		Plugins::SolarControl::SolarCommunicator* solarCommunicator = nullptr;
 		std::unordered_map<uint, std::vector<std::string>> guardNpcMap;
 		std::map<std::string, ObjectiveSolarCategories> solars;
+		std::vector<uint> hashedObjectiveZoneList {};
 	};
 
 	extern const std::unique_ptr<Global> global;
