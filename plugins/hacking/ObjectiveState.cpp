@@ -13,14 +13,12 @@ namespace Plugins::Hacking
 
 	void CreateRewardPointOfInterest(uint client)
 	{
+		// TODO: This will need filtering for systems post-goose when other areas are opened up
+
 		uint systemId;
 		pub::Player::GetSystem(client, systemId);
-		auto zone = global->hashedObjectiveZoneList[RandomNumber(0, global->hashedObjectiveZoneList.size())];
-		auto zonePos = Universe::get_zone(zone)->vPos;
-
-		Vector rewardPos = {{200.f}, {200.f}, {200.f}};
-		auto rewardSystem = "Li03";
-		auto rewardSector = Hk::Math::VectorToSectorCoord<std::wstring>(CreateID(rewardSystem), zonePos);
+		auto zonePos = Universe::get_zone(global->hashedObjectiveZoneList[RandomNumber(0, global->hashedObjectiveZoneList.size())])->vPos;
+		auto rewardSector = Hk::Math::VectorToSectorCoord<std::wstring>(systemId, zonePos);
 
 		// Send a private message to the player notifying them of their randomCash reward and POI location.
 		auto formattedHackRewardMessage =
