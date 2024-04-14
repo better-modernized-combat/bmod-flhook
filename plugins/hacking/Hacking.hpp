@@ -16,6 +16,7 @@ namespace Plugins::Hacking
 	{
 		std::string solarName;
 		std::vector<float> relativePos;
+		std::vector<float> rotation;
 	};
 
 	struct SolarGroup : Reflectable
@@ -25,6 +26,8 @@ namespace Plugins::Hacking
 		int minShipCount;
 		int maxShipCount;
 		std::vector<SolarPositions> solarComponents;
+		std::map<std::string, int> npcsToSpawn;
+		int spawnWeight = 1;
 	};
 
 	//! Configurable fields for this plugin

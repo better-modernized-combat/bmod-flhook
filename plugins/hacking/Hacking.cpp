@@ -115,6 +115,27 @@ namespace Plugins::Hacking
 			global->hashedObjectiveZoneList.insert(global->hashedObjectiveZoneList.begin(), zone);
 		}
 		AddLog(LogType::Normal, LogLevel::Debug, std::format("Loaded {} possible objective spawn locations", global->hashedObjectiveZoneList.size()));
+
+		for (auto& item : global->config->solarGroups)
+		{
+			for (auto& component : item.solarComponents)
+			{
+				if (component.relativePos.size() != 3)
+				{
+					component.relativePos = {0.0, 0.0, 0.0};
+					AddLog(LogType::Normal,
+					    LogLevel::Err,
+					    std::format("The solarComponent {} has an invalid relative position value, using 0, 0, 0 instead", component.solarName));
+				}
+				if (component.rotation.size() != 3)
+				{
+					component.rotation = {0.0, 0.0, 0.0};
+					AddLog(LogType::Normal,
+					    LogLevel::Err,
+					    std::format("The solarComponent {} has an invalid rotation value, using 0, 0, 0 instead", component.solarName));
+				}
+			}
+		}
 	}
 
 	//  Function: Attaches and lights a fuse on a player ship
@@ -196,103 +217,6 @@ namespace Plugins::Hacking
 
 		return spawnedNpcs;
 	}
-
-	std::vector<SpawnedObject*> SpawnPreset(const std::string& presetName, ushort faction, const Vector& pos, uint system)
-	{
-		auto preset = std::ranges::find_if(global->spawnPresets, [&presetName](const SolarGroup& sg) { return sg.name == presetName; });
-		if (preset == global->spawnPresets.end())
-		{
-			return {};
-		}
-
-		for (auto& component : preset->solarComponents)
-		{
-			global->solarCommunicator->CreateSolar(stows(component.solarName),
-			    {
-			        pos.x + component.relativePos[0],
-			        pos.y + component.relativePos[1],
-			        pos.z + component.relativePos[2],
-			    },
-			    {180, 0, 0},
-			    system,
-			    true,
-			    false);
-		}
-
-		for (auto faction : preset->presentFactions)
-		{
-			SpawnRandomShips(faction, pos, system, preset->minShipCount, preset->maxShipCount);
-		}
-
-		// New system is presets
-		// TODO: Include preset NPCs to spawn in this as well.
-
-		// TODO: Pass in SolarFaction from the hack and spawn appropriate content dynamically (With ambush it should be the target faction being ambushed by a
-		// greater number of appropriate hostiles)
-		// config for opposing factions: map of a vector of string: faction and all valid opposing factions
-
-		// NPCs not spawning yet, need to debug
-		/*int solarReputation;
-		pub::SpaceObj::GetRep(hack.target, solarReputation);
-
-		uint solarFaction;
-		pub::Reputation::GetAffiliation(solarReputation, solarFaction);
-
-		for (auto faction : global->opposingFactions)
-		{
-		    if (faction.first == solarFaction)
-		    {
-		        auto opposingFaction = faction.second[RandomNumber(0, faction.second.size() - 1)];
-		        SpawnRandomShips(spawnPosition, system, client, hack, solarFaction, global->factionNpcMap, 6, 8);
-		        SpawnRandomShips(spawnPosition, system, client, hack, opposingFaction, global->factionNpcMap, 2, 3);
-
-		        break;
-		    }
-		}*/
-	}
-
-	/* auto groupSize = Hk::Player::GetGroupMembers(client).value();
-
-	// Iterates over npcList and checks to see if it contains the faction belonging to solarFaction
-	if (!npcList.contains(solarFaction))
-	{
-	    AddLog(LogType::Normal, LogLevel::Err, std::format("No defined NPCs belong to faction {}", solarFaction));
-	    return;
-	}
-
-	auto& npcShipList = npcList.at(solarFaction);
-
-	for (const auto& _ : groupSize)
-	{
-	    for (int i = 0; i < RandomNumber(min, max); i++)
-	    {
-	        auto randRes = RandomNumber(0, npcShipList.size() - 1);
-	        const auto& npcToSpawn = npcShipList[randRes];
-
-	        if (npcList == global->guardNpcMap)
-	        {
-	            auto& spawnedNpc = hack.spawnedNpcList.emplace_back(spawnNpc(stows(npcToSpawn)));
-	        }
-	        else if (npcList == global->factionNpcMap)
-	        {
-	            // TODO: Stick these guys in a seperate list and track them
-	            auto& spawnedNpc = hack.spawnedNpcList.emplace_back(spawnNpc(stows(npcToSpawn)));
-	        }
-
-	        /*auto* obj = reinterpret_cast<CShip*>(CObject::Find(spawnedNpc.spaceId, CObject::Class::CSHIP_OBJECT));
-	        auto manager = GetEquipManager(obj);
-
-	        CEquipTraverser traverser {CEquip::Class::CloakingDevice};
-	        auto equip = manager->Traverse(traverser);
-	        if (equip)
-	        {
-	            spawnedNpc.cloakId = equip->iSubObjId;
-	            ToggleCloak(spawnedNpc.spaceId, spawnedNpc.cloakId, false);
-	        }
-
-	        obj->Release();*/
-	//	}
-	//}
 
 	// What happens when our /hack command is called by a player
 	void UserCmdStartHack(ClientId& client)
@@ -425,8 +349,9 @@ namespace Plugins::Hacking
 using namespace Plugins::Hacking;
 
 // Generates the JSON file
-REFL_AUTO(type(SolarPositions), field(solarName), field(relativePos));
-REFL_AUTO(type(SolarGroup), field(name), field(presentFactions), field(minShipCount), field(maxShipCount), field(solarComponents));
+REFL_AUTO(type(SolarPositions), field(solarName), field(relativePos), field(rotation));
+REFL_AUTO(type(SolarGroup), field(name), field(presentFactions), field(minShipCount), field(maxShipCount), field(solarComponents), field(npcsToSpawn),
+    field(spawnWeight));
 REFL_AUTO(type(Config), field(hackingStartedMessage), field(hackingFinishedMessage), field(hackingMessageRadius), field(hackingTime), field(rewardCashMin),
     field(rewardCashMax), field(hackingTime), field(guardNpcPersistTime), field(minNpcGuards), field(maxNpcGuards), field(hackingSustainRadius),
     field(hackingInitiateRadius), field(guardNpcMap), field(factionNpcMap), field(initialObjectiveSolars), field(useFuses), field(shipFuse),

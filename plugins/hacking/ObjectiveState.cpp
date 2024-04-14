@@ -5,10 +5,44 @@
 
 namespace Plugins::Hacking
 {
-	enum class PoiType
+
+	std::vector<SpawnedObject*> SpawnNpcGroup(const Vector& pos, uint system, const SolarGroup& solarGroup)
 	{
-		FactionAmbush = 0
-	};
+		std::vector<SpawnedObject*> spawnedNpcs;
+
+		for (const auto& [key, value] : solarGroup.npcsToSpawn)
+		{
+			for (int i = 0; i < value; i++)
+			{
+				uint spaceId = global->npcCommunicator->CreateNpc(stows(key), pos, {{{1.f, 0, 0}, {0.f, 1.f, 0.f}, {0.f, 0.f, 1.f}}}, system, true);
+				auto& solar = global->spawnedNpcs.emplace_back(spaceId, 0, Hk::Time::GetUnixSeconds());
+				spawnedNpcs.emplace_back(&solar);
+			}
+		}
+	}
+
+	std::vector<SpawnedObject*> SpawnSolarGroup(const Vector& pos, uint system, const SolarGroup& solarGroup)
+	{
+		std::vector<SpawnedObject*> spawnedComponents;
+
+		for (auto component : solarGroup.solarComponents)
+		{
+			uint spaceId = global->solarCommunicator->CreateSolar(stows(component.solarName),
+			    {
+			        pos.x + component.relativePos[0],
+			        pos.y + component.relativePos[1],
+			        pos.z + component.relativePos[2],
+			    },
+			    EulerMatrix(Vector {component.rotation[0], component.rotation[1], component.rotation[2]}),
+			    system,
+			    true,
+			    false);
+			auto& solar = global->spawnedSolars.emplace_back(spaceId, 0, Hk::Time::GetUnixSeconds());
+			spawnedComponents.emplace_back(&solar);
+		}
+
+		return spawnedComponents;
+	}
 
 	void CreateRewardPointOfInterest(uint client, HackInfo hack)
 	{
@@ -24,19 +58,14 @@ namespace Plugins::Hacking
 		    std::format(L"A point of interest has been revealed in sector {} ({:.0f}, {:.0f}, {:.0f}).", rewardSector, zonePos.x, zonePos.y, zonePos.z);
 		PrintUserCmdText(client, formattedHackRewardMessage);
 
-		Vector spawnPosition = {6370, 246, 84809};
+		// TODO: Random SolarGroup
 
-		// Random number 0, PoiType
-		auto randomPoi = PoiType::FactionAmbush;
-		switch (randomPoi)
-		{
-			case PoiType::FactionAmbush:
-				// SpawnFactionAmbush();
-				break;
-			default:
-				// Log something was bad
-				break;
-		}
+		Vector spawnPosition = {8142, 107, 81435};
+
+		// TODO Weighting
+
+		SpawnSolarGroup(spawnPosition, systemId, global->config->solarGroups[0]);
+		SpawnNpcGroup(spawnPosition, systemId, global->config->solarGroups[0]);
 	}
 
 	// Function: This function is called when an initial objective is completed.
