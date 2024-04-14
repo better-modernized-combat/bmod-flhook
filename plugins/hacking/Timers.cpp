@@ -90,10 +90,10 @@ namespace Plugins::Hacking
 				for (auto obj : info.spawnedNpcList)
 				{
 					// TODO: Make the NPCs here really cloak rather than just despawning
-					pub::SpaceObj::Destroy(obj.npcId, VANISH);
+					pub::SpaceObj::Destroy(obj.spaceId, VANISH);
 					Hk::Client::PlaySoundEffect(client, CreateID("cloak_rh_fighter"));
 
-					// ToggleCloak(obj.npcId, obj.cloakId, true);
+					// ToggleCloak(obj.spaceId, obj.cloakId, true);
 				}
 
 				CleanUp(info);
@@ -156,6 +156,33 @@ namespace Plugins::Hacking
 
 			pub::SpaceObj::SetRelativeHealth(list.rotatingSolars[list.currentIndex].solar, 0.6f);
 			list.rotatingSolars[list.currentIndex].isHacked = false;
+		}
+	}
+
+	void OneMinuteTick()
+	{
+		auto currentTime = Hk::Time::GetUnixSeconds();
+		// Every minute we clean up any left over NPCs and Solars
+		for (auto npc = global->spawnedNpcs.begin(); npc != global->spawnedNpcs.end(); ++npc)
+		{
+			if (npc->spawnTime + global->config->npcPersistTimeInSeconds < currentTime)
+			{
+				pub::SpaceObj::Destroy(npc->spaceId, DestroyType::VANISH);
+				global->spawnedNpcs.erase(npc);
+				npc--;
+				continue;
+			}
+		}
+
+		for (auto solar = global->spawnedSolars.begin(); solar != global->spawnedSolars.end(); ++solar)
+		{
+			if (solar->spawnTime + global->config->poiPersistTimeInSeconds < currentTime)
+			{
+				pub::SpaceObj::Destroy(solar->spaceId, DestroyType::VANISH);
+				global->spawnedSolars.erase(solar);
+				solar--;
+				continue;
+			}
 		}
 	}
 } // namespace Plugins::Hacking

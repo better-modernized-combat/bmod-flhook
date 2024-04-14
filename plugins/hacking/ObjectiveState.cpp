@@ -1,5 +1,8 @@
 #include "Hacking.hpp"
 
+// TODO: Make sure spawned stuff has a proper faction assigned, solars in formation currently do not
+// TODO: If a zone area is in use, reserve it, so additional stuff can't spawn in it.
+
 namespace Plugins::Hacking
 {
 	enum class PoiType
@@ -7,11 +10,7 @@ namespace Plugins::Hacking
 		FactionAmbush = 0
 	};
 
-	void SpawnFactionAmbush()
-	{
-	}
-
-	void CreateRewardPointOfInterest(uint client)
+	void CreateRewardPointOfInterest(uint client, HackInfo hack)
 	{
 		// TODO: This will need filtering for systems post-goose when other areas are opened up
 
@@ -25,12 +24,14 @@ namespace Plugins::Hacking
 		    std::format(L"A point of interest has been revealed in sector {} ({:.0f}, {:.0f}, {:.0f}).", rewardSector, zonePos.x, zonePos.y, zonePos.z);
 		PrintUserCmdText(client, formattedHackRewardMessage);
 
+		Vector spawnPosition = {6370, 246, 84809};
+
 		// Random number 0, PoiType
 		auto randomPoi = PoiType::FactionAmbush;
 		switch (randomPoi)
 		{
 			case PoiType::FactionAmbush:
-				SpawnFactionAmbush();
+				// SpawnFactionAmbush();
 				break;
 			default:
 				// Log something was bad
@@ -70,7 +71,7 @@ namespace Plugins::Hacking
 		Hk::Player::AddCash(client, randomCash);
 
 		// Grab all the information needed to populate the private message to the player.
-		CreateRewardPointOfInterest(client);
+		CreateRewardPointOfInterest(client, info);
 		PrintUserCmdText(client, std::format(L"{} credits diverted from local financial ansibles", randomCash));
 
 		for (auto& i : global->solars | std::views::values)

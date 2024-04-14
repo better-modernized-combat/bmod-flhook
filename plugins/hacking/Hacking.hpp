@@ -11,6 +11,22 @@
 
 namespace Plugins::Hacking
 {
+
+	struct SolarPositions : Reflectable
+	{
+		std::string solarName;
+		std::vector<float> relativePos;
+	};
+
+	struct SolarGroup : Reflectable
+	{
+		std::string name;
+		std::vector<uint> presentFactions;
+		int minShipCount;
+		int maxShipCount;
+		std::vector<SolarPositions> solarComponents;
+	};
+
 	//! Configurable fields for this plugin
 	struct Config final : Reflectable
 	{
@@ -55,12 +71,24 @@ namespace Plugins::Hacking
 		    {"Li01", {{"bm_li01_hackable_1"}, {"bm_li01_hackable_2"}, {"bm_li01_hackable_3"}}}};
 
 		std::vector<std::string> objectiveZoneList {{"zone_li03_destroy_vignette_1"}, {"zone_li03_destroy_vignette_2"}};
+
+		std::map<std::string, std::vector<std::string>> factionNpcMap {
+		    {"li_n_grp", {{"l_defender"}, {"l_patriot"}, {"l_guardian"}}}, {"fc_x_grp", {{"x_hawk"}, {"x_falcon"}, {"x_eagle"}}}};
+
+		std::vector<SolarGroup> solarGroups;
+
+		// TODO: Read faction affiliation and what can spawn in system instead
+		std::map<std::string, std::vector<std::string>> opposingFactions {{"fc_x_grp", {{"li_n_grp"}}}, {"li_n_grp", {{"fc_x_grp"}}}};
+
+		int npcPersistTimeInSeconds = 60 * 20;
+		int poiPersistTimeInSeconds = 60 * 20;
 	};
 
-	struct NpcInfo
+	struct SpawnedObject
 	{
-		uint npcId = 0;
+		uint spaceId = 0;
 		ushort cloakId = 0;
+		uint spawnTime = 0;
 	};
 
 	struct HackInfo
@@ -68,7 +96,7 @@ namespace Plugins::Hacking
 		uint target = 0;
 		int time = 0;
 		bool beenWarned = false;
-		std::vector<NpcInfo> spawnedNpcList;
+		std::vector<SpawnedObject> spawnedNpcList;
 	};
 
 	struct ObjectiveSolars
@@ -93,18 +121,29 @@ namespace Plugins::Hacking
 		std::array<HackInfo, 255> activeHacks;
 		Plugins::Npc::NpcCommunicator* npcCommunicator = nullptr;
 		Plugins::SolarControl::SolarCommunicator* solarCommunicator = nullptr;
+
 		std::unordered_map<uint, std::vector<std::string>> guardNpcMap;
+
 		std::map<std::string, ObjectiveSolarCategories> solars;
 		std::vector<uint> hashedObjectiveZoneList {};
+		std::unordered_map<ushort, std::vector<ushort>> opposingFactions;
+
+		std::vector<SolarGroup> spawnPresets;
+		std::vector<SpawnedObject> spawnedNpcs;
+		std::vector<SpawnedObject> spawnedSolars;
+		std::unordered_map<ushort, std::vector<std::wstring>> factionNpcMap;
 	};
 
 	extern const std::unique_ptr<Global> global;
 
 	void FiveSecondTick();
 	void TwentyMinuteTick();
+	void OneMinuteTick();
 	bool IsInSolarRange(ClientId client, uint solar, float distance);
 	void LightShipFuse(uint client, const std::string& fuse);
 	void UnLightShipFuse(uint client, const std::string& fuse);
 	int RandomNumber(int min, int max);
 	void CompleteObjective(HackInfo& info, uint client);
+	std::vector<SpawnedObject*> SpawnRandomShips(ushort faction, const Vector& pos, uint system, int min = 1, int max = 16);
+	std::vector<SpawnedObject*> SpawnPreset(const std::string& presetName, ushort faction, const Vector& pos, uint system);
 } // namespace Plugins::Hacking
