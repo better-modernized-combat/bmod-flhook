@@ -88,15 +88,6 @@ namespace Plugins::Hacking
 			}
 		}
 
-		for (const auto& [key, value] : global->config->opposingFactions)
-		{
-			auto& factions = global->opposingFactions[MakeId(key.c_str())] = {};
-			for (const auto& faction : value)
-			{
-				factions.emplace_back(MakeId(faction.c_str()));
-			}
-		}
-
 		for (const auto& [key, value] : global->config->initialObjectiveSolars)
 		{
 			ObjectiveSolarCategories solars;
@@ -354,7 +345,7 @@ REFL_AUTO(type(SolarGroup), field(name), field(solarComponents), field(npcsToSpa
 REFL_AUTO(type(Config), field(hackingStartedMessage), field(hackingFinishedMessage), field(hackingMessageRadius), field(hackingTime), field(rewardCashMin),
     field(rewardCashMax), field(hackingTime), field(guardNpcPersistTime), field(minNpcGuards), field(maxNpcGuards), field(hackingSustainRadius),
     field(hackingInitiateRadius), field(guardNpcMap), field(factionNpcMap), field(initialObjectiveSolars), field(useFuses), field(shipFuse),
-    field(objectiveZoneList), field(solarGroups), field(opposingFactions), field(poiPersistTimeInSeconds), field(npcPersistTimeInSeconds));
+    field(objectiveZoneList), field(solarGroups), field(poiPersistTimeInSeconds), field(npcPersistTimeInSeconds));
 
 DefaultDllMainSettings(LoadSettings);
 

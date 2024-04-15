@@ -76,10 +76,6 @@ namespace Plugins::Hacking
 		    {"li_n_grp", {{"l_defender"}, {"l_patriot"}, {"l_guardian"}}}, {"fc_x_grp", {{"x_hawk"}, {"x_falcon"}, {"x_eagle"}}}};
 
 		std::vector<SolarGroup> solarGroups;
-
-		// TODO: Read faction affiliation and what can spawn in system instead
-		std::map<std::string, std::vector<std::string>> opposingFactions {{"fc_x_grp", {{"li_n_grp"}}}, {"li_n_grp", {{"fc_x_grp"}}}};
-
 		int npcPersistTimeInSeconds = 60 * 20;
 		int poiPersistTimeInSeconds = 60 * 20;
 	};
