@@ -58,14 +58,13 @@ namespace Plugins::Hacking
 		    std::format(L"A point of interest has been revealed in sector {} ({:.0f}, {:.0f}, {:.0f}).", rewardSector, zonePos.x, zonePos.y, zonePos.z);
 		PrintUserCmdText(client, formattedHackRewardMessage);
 
-		// TODO: Random SolarGroup
+		// Vector spawnPosition = {8142, 107, 81435};
 
-		Vector spawnPosition = {8142, 107, 81435};
+		// TODO: Weighting
+		auto poi = RandomNumber(0, global->config->solarGroups.size() - 1);
 
-		// TODO Weighting
-
-		SpawnSolarGroup(spawnPosition, systemId, global->config->solarGroups[0]);
-		SpawnNpcGroup(spawnPosition, systemId, global->config->solarGroups[0]);
+		SpawnSolarGroup(zonePos, systemId, global->config->solarGroups[poi]);
+		SpawnNpcGroup(zonePos, systemId, global->config->solarGroups[poi]);
 	}
 
 	// Function: This function is called when an initial objective is completed.
