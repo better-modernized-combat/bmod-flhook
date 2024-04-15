@@ -350,8 +350,7 @@ using namespace Plugins::Hacking;
 
 // Generates the JSON file
 REFL_AUTO(type(SolarPositions), field(solarName), field(relativePos), field(rotation));
-REFL_AUTO(type(SolarGroup), field(name), field(presentFactions), field(minShipCount), field(maxShipCount), field(solarComponents), field(npcsToSpawn),
-    field(spawnWeight));
+REFL_AUTO(type(SolarGroup), field(name), field(presentFactions), field(solarComponents), field(npcsToSpawn), field(spawnWeight));
 REFL_AUTO(type(Config), field(hackingStartedMessage), field(hackingFinishedMessage), field(hackingMessageRadius), field(hackingTime), field(rewardCashMin),
     field(rewardCashMax), field(hackingTime), field(guardNpcPersistTime), field(minNpcGuards), field(maxNpcGuards), field(hackingSustainRadius),
     field(hackingInitiateRadius), field(guardNpcMap), field(factionNpcMap), field(initialObjectiveSolars), field(useFuses), field(shipFuse),

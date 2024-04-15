@@ -23,8 +23,6 @@ namespace Plugins::Hacking
 	{
 		std::string name;
 		std::vector<uint> presentFactions;
-		int minShipCount;
-		int maxShipCount;
 		std::vector<SolarPositions> solarComponents;
 		std::map<std::string, int> npcsToSpawn;
 		int spawnWeight = 1;
