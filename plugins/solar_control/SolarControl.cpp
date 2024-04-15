@@ -154,7 +154,6 @@ namespace Plugins::SolarControl
 		// Undo the server.dll hack
 		constexpr char serverUnHack[] = {'\x74'};
 		WriteProcMem(serverHackAddress, &serverUnHack, 1);
-
 	}
 
 	/** @ingroup SolarControl
@@ -188,7 +187,7 @@ namespace Plugins::SolarControl
 		pub::SpaceObj::SolarInfo si {};
 		memset(&si, 0, sizeof(si));
 		si.iFlag = 4;
-	
+
 		// Prepare the settings for the space object
 		si.iArchId = arch.solarArchId;
 		si.iLoadoutId = arch.loadoutId;
@@ -397,7 +396,43 @@ namespace Plugins::SolarControl
 		{
 			for (const auto& solar : global->config->startupSolars)
 			{
+				if (!global->config->solarArches.contains(solar.name))
+				{
+					Console::ConWarn(
+					    std::format("Attempted to load a solar that was not defined in solarArches as a startupSolars: Did not load {}", wstos(solar.name)));
+					continue;
+				}
+
 				CreateUserDefinedSolar(solar.name, solar.pos, solar.rot, solar.systemId, false, false);
+			}
+
+			for (const auto& [key, value] : global->config->solarArches)
+			{
+				// Check solar base is valid
+				if (!Hk::Admin::GetBaseStatus(stows(value.base)))
+				{
+					Console::ConWarn(std::format("Attempted to load invalid base for a solarArch: {}", value.base));
+				}
+
+				// Check if solar iff is valid
+				uint npcIff;
+				pub::Reputation::GetReputationGroup(npcIff, value.iff.c_str());
+				if (npcIff == UINT_MAX)
+				{
+					Console::ConErr(std::format("Loaded invalid reputation for a solarArch: {}", value.iff));
+				}
+
+				// Check solar pilot is valid
+				if (!Hk::Personalities::GetPersonality(value.pilot).has_value())
+				{
+					Console::ConErr(std::format("Loaded invalid pilot for a solarArch: {}", value.pilot));
+				}
+
+				// Check solar solarArch is valid
+				if (!Archetype::GetSolar(CreateID(value.solarArch.c_str())))
+				{
+					Console::ConErr(std::format("Attempted to load invalid solarArch {}", value.solarArch));
+				}
 			}
 			global->firstRun = false;
 		}
