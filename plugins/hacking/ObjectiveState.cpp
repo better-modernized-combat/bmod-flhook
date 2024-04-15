@@ -60,11 +60,22 @@ namespace Plugins::Hacking
 
 		// Vector spawnPosition = {8142, 107, 81435};
 
-		// TODO: Weighting
 		auto poi = RandomNumber(0, global->config->solarGroups.size() - 1);
 
-		SpawnSolarGroup(zonePos, systemId, global->config->solarGroups[poi]);
-		SpawnNpcGroup(zonePos, systemId, global->config->solarGroups[poi]);
+		std::vector<int> weights {};
+		for (const auto& solarGroup : global->config->solarGroups)
+		{
+			weights.push_back(solarGroup.spawnWeight);
+		}
+
+		std::discrete_distribution<> dist(weights.begin(), weights.end());
+		std::mt19937 engine;
+		auto numberIndex = dist(engine);
+
+		Console::ConDebug(std::format("Spawning POI {}", global->config->solarGroups[numberIndex].name));
+
+		SpawnSolarGroup(zonePos, systemId, global->config->solarGroups[numberIndex]);
+		SpawnNpcGroup(zonePos, systemId, global->config->solarGroups[numberIndex]);
 	}
 
 	// Function: This function is called when an initial objective is completed.

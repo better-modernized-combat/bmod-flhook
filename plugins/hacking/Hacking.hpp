@@ -22,7 +22,6 @@ namespace Plugins::Hacking
 	struct SolarGroup : Reflectable
 	{
 		std::string name;
-		std::vector<uint> presentFactions;
 		std::vector<SolarPositions> solarComponents;
 		std::map<std::string, int> npcsToSpawn;
 		int spawnWeight = 1;
