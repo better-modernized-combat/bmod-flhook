@@ -35,7 +35,7 @@ namespace Plugins::Hacking
 			    },
 			    EulerMatrix(Vector {component.rotation[0], component.rotation[1], component.rotation[2]}),
 			    system,
-			    true,
+			    false,
 			    false);
 			auto& solar = global->spawnedSolars.emplace_back(spaceId, 0, Hk::Time::GetUnixSeconds());
 			spawnedComponents.emplace_back(&solar);
@@ -63,13 +63,14 @@ namespace Plugins::Hacking
 		auto poi = RandomNumber(0, global->config->solarGroups.size() - 1);
 
 		std::vector<int> weights {};
+		weights.reserve(global->config->solarGroups.size());
 		for (const auto& solarGroup : global->config->solarGroups)
 		{
-			weights.push_back(solarGroup.spawnWeight);
+			weights.emplace_back(solarGroup.spawnWeight);
 		}
 
 		std::discrete_distribution<> dist(weights.begin(), weights.end());
-		std::mt19937 engine;
+		static std::mt19937 engine;
 		auto numberIndex = dist(engine);
 
 		Console::ConDebug(std::format("Spawning POI {}", global->config->solarGroups[numberIndex].name));

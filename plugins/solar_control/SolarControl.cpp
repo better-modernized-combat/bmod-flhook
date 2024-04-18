@@ -204,12 +204,13 @@ namespace Plugins::SolarControl
 		strncpy_s(si.cNickName, sizeof(si.cNickName), npcId.c_str(), name.size() + global->spawnedSolars.size());
 
 		// Do we need to vary the starting position slightly? Useful when spawning multiple objects
+		// Disabled this temporarily, seemed to be causing issues
 		si.vPos = position;
 		if (varyPosition)
 		{
-			si.vPos.x = position.x + RandomFloatRange(0, 1000);
-			si.vPos.y = position.y + RandomFloatRange(0, 1000);
-			si.vPos.z = position.z + RandomFloatRange(0, 2000);
+			si.vPos.x = position.x;
+			si.vPos.y = position.y;
+			si.vPos.z = position.z;
 		}
 		else
 		{
@@ -245,13 +246,13 @@ namespace Plugins::SolarControl
 		// Set Reputation
 		pub::Reputation::Alloc(si.iRep, scannerName, solarName);
 
-		// Spawn the solar object
-		uint spaceId;
-		CreateSolar(spaceId, si);
-
 		uint iff;
 		pub::Reputation::GetReputationGroup(iff, arch.iff.c_str());
 		pub::Reputation::SetAffiliation(si.iRep, iff);
+
+		// Spawn the solar object
+		uint spaceId;
+		CreateSolar(spaceId, si);
 
 		pub::AI::SetPersonalityParams personalityParams = GetPersonality(arch.pilot);
 		pub::AI::SubmitState(spaceId, &personalityParams);
@@ -260,6 +261,8 @@ namespace Plugins::SolarControl
 		pub::SpaceObj::SetRelativeHealth(spaceId, 1);
 
 		global->spawnedSolars[spaceId] = si;
+		global->latestSolarInfo = si;
+		global->latestSpaceId = spaceId;
 
 		return spaceId;
 	}
@@ -453,16 +456,17 @@ namespace Plugins::SolarControl
 		}
 	}
 
+	// TODO: Filter this/move it to on target, it needs some kind of filter
 	/** @ingroup SolarControl
 	 * @brief Timer to set the relative health of spawned solars. This fixes the glitch where spawned solars are not dockable
 	 */
-	void RelativeHealthTimer()
+	/*void RelativeHealthTimer()
 	{
-		for (const auto& name : global->spawnedSolars | std::views::keys)
-		{
-			pub::SpaceObj::SetRelativeHealth(name, 1.0f);
-		}
-	}
+	    for (const auto& name : global->spawnedSolars | std::views::keys)
+	    {
+	        pub::SpaceObj::SetRelativeHealth(name, 1.0f);
+	    }
+	}*/
 
 	/** @ingroup SolarControl
 	 * @brief Timer to clear the docking requests vector. This vector exists to stop the server from spamming docking requests when using SetTarget
@@ -473,7 +477,8 @@ namespace Plugins::SolarControl
 	}
 
 	// Timers
-	const std::vector<Timer> timers = {{RelativeHealthTimer, 5}, {ClearDockingRequestsTimer, 5}};
+	// const std::vector<Timer> timers = {{RelativeHealthTimer, 5}, {ClearDockingRequestsTimer, 5}};
+	const std::vector<Timer> timers = {{ClearDockingRequestsTimer, 5}};
 
 	void PlayerLaunch([[maybe_unused]] ShipId& shipId, ClientId& client)
 	{

@@ -64,5 +64,7 @@ namespace Plugins::SolarControl
 		std::shared_ptr<spdlog::logger> log = nullptr;
 		SolarCommunicator* communicator = nullptr;
 		std::map<uint, uint> pendingRedirects;
+		uint latestSpaceId;
+		pub::SpaceObj::SolarInfo latestSolarInfo;
 	};
 } // namespace Plugins::SolarControl
