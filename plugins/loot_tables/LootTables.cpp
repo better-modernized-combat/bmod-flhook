@@ -8,7 +8,7 @@
  *
  * @paragraph cmds Player Commands
  * There are no cmds player commands in this plugin.
- * 
+ *
  * @paragraph adminCmds Admin Commands
  * There are no admin commands in this plugin.
  *
@@ -30,9 +30,9 @@ namespace Plugins::LootTables
 	const std::unique_ptr<Global> global = std::make_unique<Global>();
 
 	/** @ingroup LootTables
-	* @brief Checks if a certain item is on board a ship. (Potentially replaced in future)
-	* For now this also only works for commodities!
-	*/
+	 * @brief Checks if a certain item is on board a ship. (Potentially replaced in future)
+	 * For now this also only works for commodities!
+	 */
 	bool CheckForItem(CShip* ship, const uint triggerItemHashed)
 	{
 		CEquipTraverser traverser(UINT_MAX);
@@ -76,7 +76,7 @@ namespace Plugins::LootTables
 			}
 
 			// Calculate what Item to drop
-			std::random_device randomDevice; // Used to obtain a seed
+			std::random_device randomDevice;                    // Used to obtain a seed
 			std::mt19937 mersenneTwisterEngine(randomDevice()); //  Mersenne Twister algorithm seeded with the variable above
 			std::uniform_real_distribution dist(0.0f, 1.0f);
 			const float randomFloat = dist(mersenneTwisterEngine);
@@ -86,13 +86,8 @@ namespace Plugins::LootTables
 				sum += weight;
 				if (randomFloat <= sum && itemHashed)
 				{
-     					Server.MineAsteroid(
-					    ship->iSystem, 
-						ship->get_position(), 
-						global->config->lootDropContainerHashed, 
-						itemHashed, 
-						lootTable.dropCount, 
-						ship->GetOwnerPlayer());
+					Server.MineAsteroid(
+					    ship->iSystem, ship->get_position(), global->config->lootDropContainerHashed, itemHashed, lootTable.dropCount, ship->GetOwnerPlayer());
 					return;
 				}
 			}
@@ -123,7 +118,6 @@ namespace Plugins::LootTables
 				{
 					weighting.itemHashed = CreateID(weighting.item.c_str());
 				}
-				
 			}
 
 			if (abs(weightingCheck - 1.0f) > 1e-9) // Can't just use != due to floating point precision

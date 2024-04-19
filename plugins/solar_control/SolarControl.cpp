@@ -219,9 +219,11 @@ namespace Plugins::SolarControl
 			si.vPos.z = position.z;
 		}
 
-		// Which base this links to
-		si.baseId = arch.baseId;
-
+		if (arch.baseId)
+		{
+			// Which base this links to
+			si.baseId = arch.baseId;
+		}
 		// Mission base?
 		if (mission)
 		{
@@ -246,16 +248,22 @@ namespace Plugins::SolarControl
 		// Set Reputation
 		pub::Reputation::Alloc(si.iRep, scannerName, solarName);
 
-		uint iff;
-		pub::Reputation::GetReputationGroup(iff, arch.iff.c_str());
-		pub::Reputation::SetAffiliation(si.iRep, iff);
+		if (!arch.iff.empty())
+		{
+			uint iff;
+			pub::Reputation::GetReputationGroup(iff, arch.iff.c_str());
+			pub::Reputation::SetAffiliation(si.iRep, iff);
+		}
 
 		// Spawn the solar object
 		uint spaceId;
 		CreateSolar(spaceId, si);
 
-		pub::AI::SetPersonalityParams personalityParams = GetPersonality(arch.pilot);
-		pub::AI::SubmitState(spaceId, &personalityParams);
+		if (!arch.pilot.empty())
+		{
+			pub::AI::SetPersonalityParams personalityParams = GetPersonality(arch.pilot);
+			pub::AI::SubmitState(spaceId, &personalityParams);
+		}
 
 		// Set the visible health for the Space Object
 		pub::SpaceObj::SetRelativeHealth(spaceId, 1);
