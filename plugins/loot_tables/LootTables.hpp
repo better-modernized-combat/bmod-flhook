@@ -11,7 +11,7 @@ namespace Plugins::LootTables
 		uint weighting = 2; // Weights are relative, meaning to compute drop likelihood, do w_i / sum(w_1, w_2, ...)
 		uint itemHashed = 0;
 		std::string item = "missile01_mark02_ammo";
-		uint dropCount = 3;
+		std::vector<uint> dropCounts = {1, 1, 2, 3};
 	};
 
 	struct LootTable final : Reflectable

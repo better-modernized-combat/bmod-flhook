@@ -89,14 +89,18 @@ namespace Plugins::LootTables
 
 				// Choose a random index
 				std::discrete_distribution<> discreteDistribution(weights.begin(), weights.end());
-				auto chosenIndex = discreteDistribution(mersenneTwisterEngine);
+				auto chosenItemIndex = discreteDistribution(mersenneTwisterEngine);
+
+				// Choose a random amount to drop
+				std::uniform_int_distribution<> uniformDistribution(0, lootTable.dropWeights[chosenItemIndex].dropCounts.size() - 1);
+				auto chosenDropCountIndex = uniformDistribution(mersenneTwisterEngine);
 
 				// Drop item corresponding to said index
 				Server.MineAsteroid(ship->iSystem,
 				    ship->get_position(),
 				    global->config->lootDropContainerHashed,
-				    lootTable.dropWeights[chosenIndex].itemHashed,
-				    lootTable.dropWeights[chosenIndex].dropCount,
+				    lootTable.dropWeights[chosenItemIndex].itemHashed,
+				    lootTable.dropWeights[chosenItemIndex].dropCounts[chosenDropCountIndex],
 				    ship->GetOwnerPlayer());
 			}
 		}
@@ -124,7 +128,7 @@ namespace Plugins::LootTables
 
 using namespace Plugins::LootTables;
 
-REFL_AUTO(type(DropWeight), field(weighting), field(item), field(dropCount));
+REFL_AUTO(type(DropWeight), field(weighting), field(item), field(dropCounts));
 REFL_AUTO(type(LootTable), field(rollCount), field(applyToPlayers), field(applyToNpcs), field(triggerItem), field(dropWeights));
 REFL_AUTO(type(Config), field(lootDropContainer), field(lootTables));
 
