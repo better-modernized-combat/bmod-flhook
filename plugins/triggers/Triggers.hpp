@@ -10,43 +10,52 @@ namespace Plugins::Triggers
 
 	struct Position final : Reflectable
 	{
-		std::vector<float> location;
-		std::string system;
+		std::vector<float> coordinates = {0, 0, 0};
+		std::string system = "li01";
 	};
 
 	struct Event final : Reflectable
 	{
-		std::wstring solarFormation;
+		std::wstring solarFormation = L"test_solar_formation_01";
+		std::string name = "Test Event";
 		std::map<std::wstring, int> npcs;
-		int spawnWeight;
-		std::string eventLowInfoDescription;
-		std::string eventMedInfoDescription;
-		std::string eventHighInfoDescription;
-		int lifetimeInSeconds;
+		int spawnWeight = 1;
+		std::wstring descriptionLowInfo = L"This is a placeholder low information description for the event that has been triggered.";
+		std::wstring descriptionMedInfo = L"This is a placeholder medium information description for the event that has been triggered.";
+		std::wstring descriptionHighInfo = L"This is a placeholder high information description for the event that has been triggered.";
+		int lifetimeInSeconds = 1200;
+	};
+
+	struct EventFamily final : Reflectable
+	{
+		std::string name = "Test Event Family";
+		int spawnWeight = 1;
+		std::vector<Event> eventList;
+		std::vector<Position> spawnPositionList;
 	};
 
 	struct TerminalGroup final : Reflectable
 	{
 		std::string terminalName = "Communications Buoy";
-		int cooldownTimeInSeconds;
-		int useTimeInSeconds;
-		int hackTimeInSeconds;
+		int cooldownTimeInSeconds = 1200;
+		int useTimeInSeconds = 30;
+		int hackTimeInSeconds = 90;
 
-		float hackHostileChance;
-		int minHostileHackHostileNpcs;
-		int maxHostileHackHostileNpcs;
+		float hackHostileChance = 0.5f;
+		int minHostileHackHostileNpcs = 1;
+		int maxHostileHackHostileNpcs = 3;
 
-		int useCostInCredits;
-		int minHackRewardInCredits;
-		int maxHackRewardInCredits;
+		int useCostInCredits = 7500;
+		int minHackRewardInCredits = 2000;
+		int maxHackRewardInCredits = 4000;
 
-		std::string lawfulUseMessage;
-		std::string unlawfulHackMessage;
+		std::string messageLawfulUse = "This is the message you see describing the terminal function and cost when you lawfully use the terminal.";
+		std::string messageUnlawfulHack =
+		    "This is the message you see when you attempt to hack the terminal that describes the possible penalties and rewards.";
 
 		std::vector<std::wstring> terminalList;
-		std::vector<Event> useEventList;
-		std::vector<Event> hackEventList;
-		std::vector<Position> spawnPositionList;
+		std::vector<EventFamily> eventFamilyUseList;
+		std::vector<EventFamily> eventFamilyHackList;
 	};
 
 	// Loadable json configuration
@@ -56,16 +65,16 @@ namespace Plugins::Triggers
 
 		std::vector<TerminalGroup> terminalGroups;
 
-		float hackAndUseInitiateRadiusInMeters;
-		float hackAndUseSustainRadiusInMeters;
-		float hackNotifyAllRadiusInMeters;
-		std::wstring hackStartNotifyAllMessage = L"A {0} is being hacked by {1} in sector {2}!";
-		std::wstring hackFinishNotifyAllMessage = L"{0} has completed their hack of the {1} in sector {2} and retrieved sensitive data from the {3}!";
+		float terminalInitiateRadiusInMeters = 750;
+		float terminalSustainRadiusInMeters = 2000;
+		float terminalNotifyAllRadiusInMeters = 100000;
+		std::wstring messageHackStartNotifyAll = L"A {0} is being hacked by {1} in sector {2}!";
+		std::wstring messageHackFinishNotifyAll = L"{0} has completed their hack of the {1} in sector {2} and retrieved sensitive data from the {3}!";
 
-		std::map<std::string, std::vector<std::string>> factionNpcSpawnList {};
+		std::map<std::string, std::vector<std::string>> factionNpcSpawnList;
 
-		bool useHealthAdjustmentForTerminalStatus;
-		std::string shipActiveHackFuse;
+		bool terminalHealthAdjustmentForStatus = true;
+		std::string shipActiveTerminalFuse;
 	};
 
 	struct Global

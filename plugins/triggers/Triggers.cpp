@@ -53,15 +53,16 @@ namespace Plugins::Triggers
 
 using namespace Plugins::Triggers;
 
-REFL_AUTO(type(Position), field(location), field(system));
-REFL_AUTO(type(Event), field(solarFormation), field(npcs), field(spawnWeight), field(eventLowInfoDescription), field(eventMedInfoDescription),
-    field(eventHighInfoDescription), field(lifetimeInSeconds));
+REFL_AUTO(type(Position), field(coordinates), field(system));
+REFL_AUTO(type(Event), field(name), field(solarFormation), field(npcs), field(spawnWeight), field(descriptionLowInfo), field(descriptionMedInfo),
+    field(descriptionHighInfo), field(lifetimeInSeconds));
+REFL_AUTO(type(EventFamily), field(name), field(spawnWeight), field(eventList), field(spawnPositionList));
 REFL_AUTO(type(TerminalGroup), field(terminalName), field(cooldownTimeInSeconds), field(useTimeInSeconds), field(hackTimeInSeconds), field(hackHostileChance),
     field(minHostileHackHostileNpcs), field(maxHostileHackHostileNpcs), field(useCostInCredits), field(minHackRewardInCredits), field(maxHackRewardInCredits),
-    field(lawfulUseMessage), field(unlawfulHackMessage), field(terminalList), field(spawnPositionList), field(useEventList), field(hackEventList));
-REFL_AUTO(type(Config), field(terminalGroups), field(hackAndUseInitiateRadiusInMeters), field(hackAndUseSustainRadiusInMeters),
-    field(hackNotifyAllRadiusInMeters), field(hackStartNotifyAllMessage), field(hackFinishNotifyAllMessage), field(factionNpcSpawnList),
-    field(useHealthAdjustmentForTerminalStatus), field(shipActiveHackFuse));
+    field(messageLawfulUse), field(messageUnlawfulHack), field(terminalList), field(eventFamilyUseList), field(eventFamilyHackList));
+REFL_AUTO(type(Config), field(terminalGroups), field(terminalInitiateRadiusInMeters), field(terminalSustainRadiusInMeters),
+    field(terminalNotifyAllRadiusInMeters), field(messageHackStartNotifyAll), field(messageHackFinishNotifyAll), field(factionNpcSpawnList),
+    field(terminalHealthAdjustmentForStatus), field(shipActiveTerminalFuse));
 
 DefaultDllMainSettings(LoadSettings);
 
