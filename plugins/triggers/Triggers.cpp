@@ -131,38 +131,53 @@ namespace Plugins::Triggers
 	/** @ingroup Triggers
 	 * @brief Completes a terminal interaction, rewards the player and spawns a random event selected from the appropriate pool
 	 */
-	void CompleteTerminalInteraction(const TerminalGroup& terminalGroup, bool isLawful)
+	void CompleteTerminalInteraction(const TerminalGroup& terminalGroup, TriggerInfo terminalInfo, uint client, bool isLawful)
 	{
-		// TODO: Probably make this if check more granular and swap out the lists + messages based on the isLawful bool rather than repeating all this code
-		// again
-		if (isLawful)
+		auto& eventFamililyList = isLawful ? terminalGroup.eventFamilyUseList : terminalGroup.eventFamilyHackList;
+
+		std::vector<int> familyWeights;
+		for (const auto& eventFamily : eventFamililyList)
 		{
-			std::vector<int> familyWeights;
-			for (const auto& eventFamily : terminalGroup.eventFamilyUseList)
+			familyWeights.emplace_back(eventFamily.spawnWeight);
+		}
+		auto& family = eventFamililyList[GetRandomWeight(familyWeights)];
+
+		std::vector<int> eventWeights;
+		for (const auto& event : eventFamililyList[GetRandomWeight(familyWeights)].eventList)
+		{
+			eventWeights.emplace_back(event.spawnWeight);
+		}
+		auto& event = family.eventList[GetRandomWeight(eventWeights)];
+
+		// TODO: There should be a better way to do this?
+		std::vector<Position> activePositions;
+		for (auto& position : family.spawnPositionList)
+		{
+			if (!position.active)
 			{
-				familyWeights.emplace_back(eventFamily.spawnWeight);
+				continue;
 			}
-			auto& family = terminalGroup.eventFamilyUseList[GetRandomWeight(familyWeights)];
-
-			std::vector<int> eventWeights;
-			for (const auto& event : terminalGroup.eventFamilyUseList[GetRandomWeight(familyWeights)].eventList)
-			{
-				eventWeights.emplace_back(event.spawnWeight);
-			}
-			auto& event = family.eventList[GetRandomWeight(eventWeights)];
-			auto& position = family.spawnPositionList[GetRandomNumber(0, family.spawnPositionList.size())];
-
-			Console::ConDebug(std::format("Spawning the event '{}' at {},{},{} in {}",
-			    event.name,
-			    position.coordinates[0],
-			    position.coordinates[1],
-			    position.coordinates[2],
-			    position.system));
-
-			CreateEvent(event, position);
+			activePositions.emplace_back(position);
 		}
 
-		else if (!isLawful)
+		auto& position = activePositions[GetRandomNumber(0, activePositions.size())];
+
+		std::wstring rewardSectorMessage = Hk::Math::VectorToSectorCoord<std::wstring>(
+		    CreateID(position.system.c_str()), Vector {position.coordinates[0], position.coordinates[1], position.coordinates[2]});
+
+		Console::ConDebug(std::format("Spawning the event '{}' at {},{},{} in {}",
+		    event.name,
+		    position.coordinates[0],
+		    position.coordinates[1],
+		    position.coordinates[2],
+		    position.system));
+
+		CreateEvent(event, position);
+		// TODO: std::vformat for args passed into the description
+		PrintUserCmdText(client, event.descriptionMedInfo);
+		// TODO: std::format for global->config->messageHackFinishNotifyAll to feed in positional data, faction and client.
+
+		if (!isLawful)
 		{
 			std::vector<int> weights;
 			for (const auto& eventFamily : terminalGroup.eventFamilyHackList)
