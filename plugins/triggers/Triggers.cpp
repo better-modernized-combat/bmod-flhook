@@ -33,7 +33,7 @@ namespace Plugins::Triggers
 {
 	const auto global = std::make_unique<Global>();
 
-	int RandomNumber(int min, int max)
+	int GetRandomNumber(int min, int max)
 	{
 		static std::random_device dev;
 		static auto engine = std::mt19937(dev());
@@ -41,12 +41,40 @@ namespace Plugins::Triggers
 		return range(engine);
 	}
 
-	int RandomWeight(const std::vector<int>& weights)
+	int GetRandomWeight(const std::vector<int>& weights)
 	{
 		std::discrete_distribution<> dist(weights.begin(), weights.end());
 		static std::mt19937 engine;
 		auto weightIndex = dist(engine);
 		return weightIndex;
+	}
+
+	// Function: returns true if this player is within fDistance of the target solar
+	bool clientIsInRangeOfSolar(ClientId client, uint solar, float distance)
+	{
+		// Get the Player position
+		auto playerPos = Hk::Solar::GetLocation(client, IdType::Client);
+		if (playerPos.has_error())
+		{
+			PrintUserCmdText(client, L"Failed to get client position, something went wrong.");
+			return false;
+		}
+
+		// Get the Solar position
+		auto solarPos = Hk::Solar::GetLocation(solar, IdType::Solar);
+		if (solarPos.has_error())
+		{
+			PrintUserCmdText(client, L"Failed to get target position, something went wrong.");
+			return false;
+		}
+
+		// Check if the player is within distance of the target solar
+		if (!(Hk::Math::Distance3D(playerPos.value().first, solarPos.value().first) < distance))
+		{
+			return false;
+		}
+
+		return true;
 	}
 
 	void LoadSettings()
@@ -89,7 +117,7 @@ namespace Plugins::Triggers
 	{
 		Vector pos = {position.coordinates[0], position.coordinates[1], position.coordinates[2]};
 		Matrix mat = EulerMatrix({0.f, 0.f, 0.f});
-		
+
 		global->solarCommunicator->CreateSolarFormation(event.solarFormation, pos, CreateID(position.system.c_str()));
 
 		for (const auto& npcs : event.npcs)
@@ -98,15 +126,15 @@ namespace Plugins::Triggers
 		}
 	}
 
-	//TODO: Maybe see if you can move the weight selection into the RandomWeights function fully and do the loop in there
+	// TODO: Maybe see if you can move the weight selection into the GetRandomWeights function fully and do the loop in there
 
 	/** @ingroup Triggers
 	 * @brief Completes a terminal interaction, rewards the player and spawns a random event selected from the appropriate pool
 	 */
 	void CompleteTerminalInteraction(const TerminalGroup& terminalGroup, bool isLawful)
 	{
-
-		//TODO: Probably make this if check more granular and swap out the lists + messages based on the isLawful bool rather than repeating all this code again
+		// TODO: Probably make this if check more granular and swap out the lists + messages based on the isLawful bool rather than repeating all this code
+		// again
 		if (isLawful)
 		{
 			std::vector<int> familyWeights;
@@ -114,22 +142,22 @@ namespace Plugins::Triggers
 			{
 				familyWeights.emplace_back(eventFamily.spawnWeight);
 			}
-			auto& family = terminalGroup.eventFamilyUseList[RandomWeight(familyWeights)];
+			auto& family = terminalGroup.eventFamilyUseList[GetRandomWeight(familyWeights)];
 
 			std::vector<int> eventWeights;
-			for (const auto& event : terminalGroup.eventFamilyUseList[RandomWeight(familyWeights)].eventList)
+			for (const auto& event : terminalGroup.eventFamilyUseList[GetRandomWeight(familyWeights)].eventList)
 			{
 				eventWeights.emplace_back(event.spawnWeight);
 			}
-			auto& event = family.eventList[RandomWeight(eventWeights)];
-			auto& position = family.spawnPositionList[RandomNumber(0, family.spawnPositionList.size())];
+			auto& event = family.eventList[GetRandomWeight(eventWeights)];
+			auto& position = family.spawnPositionList[GetRandomNumber(0, family.spawnPositionList.size())];
 
 			Console::ConDebug(std::format("Spawning the event '{}' at {},{},{} in {}",
 			    event.name,
 			    position.coordinates[0],
 			    position.coordinates[1],
-			    position.coordinates[2], 
-				position.system));
+			    position.coordinates[2],
+			    position.system));
 
 			CreateEvent(event, position);
 		}
@@ -141,8 +169,89 @@ namespace Plugins::Triggers
 			{
 				weights.emplace_back(eventFamily.spawnWeight);
 			}
-			RandomWeight(weights);
+			GetRandomWeight(weights);
 		}
+	}
+
+	void UserCmdStartTerminalInteraction(ClientId& client, TriggerInfo triggerInfo)
+	{
+		// Check to make sure the plugin has loaded dependencies and settings.
+		if (!global->pluginActive)
+		{
+			PrintUserCmdText(client, L"There was an error loading this plugin, please contact your server administrator.");
+			return;
+		}
+		// Check if the player is docked.
+		if (Hk::Player::GetShip(client).has_error())
+		{
+			PrintUserCmdText(client, L"You must be in space to use this function.");
+			return;
+		}
+		// Check if the player has a valid target
+		const auto res = Hk::Player::GetTarget(client);
+		if (res.has_error())
+		{
+			PrintUserCmdText(client, L"You must select a valid target to use this function.");
+			return;
+		}
+		auto target = res.value();
+
+		// Check if the player is within hackingInitiateRadius
+		if (bool inRange = clientIsInRangeOfSolar(client, target, global->config->terminalInitiateRadiusInMeters); !inRange)
+		{
+			PrintUserCmdText(client, L"The target you have selected is too far away to initiate a hacking attempt. Please get closer.");
+			return;
+		}
+
+		TerminalGroup* group = nullptr;
+
+		// Check if this solar is on the list of availlable terminals
+		for (auto& terminalGroup : global->config->terminalGroups)
+		{
+			auto found = false;
+			for (const auto& terminal : terminalGroup.terminalList)
+			{
+				if (CreateID(terminal.c_str()) == target)
+				{
+					found = true;
+					break;
+				}
+			}
+
+			if (found)
+			{
+				group = &terminalGroup;
+				break;
+			}
+		}
+
+		if (!group)
+		{
+			PrintUserCmdText(client, L"The target you have selected is not currently hackable, please select a valid target.");
+			return;
+		}
+		// TODO: check for is hacking and is hacked and on cooldown
+
+		triggerInfo.target = target;
+		triggerInfo.inProgress = true;
+		Hk::Client::PlaySoundEffect(client, CreateID("ui_new_story_star"));
+		Hk::Client::PlaySoundEffect(client, CreateID("ui_begin_scan"));
+
+		auto clientPos = Hk::Solar::GetLocation(client, IdType::Client).value().first;
+		auto clientSystem = Hk::Solar::GetSystemBySpaceId(target).value();
+
+		// TODO: check if this is a lawful or unlawful trigger
+
+		PrintLocalUserCmdText(client,
+		    std::vformat(global->config->messageHackStartNotifyAll,
+		        std::make_wformat_args(Hk::Client::GetCharacterNameByID(client).value(), Hk::Math::VectorToSectorCoord<std::wstring>(clientSystem, clientPos))),
+		    global->config->terminalNotifyAllRadiusInMeters);
+
+		// group contains data, proceed
+		// spawn NPCs
+		// start FX
+		// start timer
+		// Set solar hostile
 	}
 
 } // namespace Plugins::Triggers
@@ -153,9 +262,10 @@ REFL_AUTO(type(Position), field(coordinates), field(system));
 REFL_AUTO(type(Event), field(name), field(solarFormation), field(npcs), field(spawnWeight), field(descriptionLowInfo), field(descriptionMedInfo),
     field(descriptionHighInfo), field(lifetimeInSeconds));
 REFL_AUTO(type(EventFamily), field(name), field(spawnWeight), field(eventList), field(spawnPositionList));
-REFL_AUTO(type(TerminalGroup), field(terminalName), field(cooldownTimeInSeconds), field(useTimeInSeconds), field(hackTimeInSeconds), field(hackHostileChance),
-    field(minHostileHackHostileNpcs), field(maxHostileHackHostileNpcs), field(useCostInCredits), field(minHackRewardInCredits), field(maxHackRewardInCredits),
-    field(messageLawfulUse), field(messageUnlawfulHack), field(terminalList), field(eventFamilyUseList), field(eventFamilyHackList));
+REFL_AUTO(type(TerminalGroup), field(terminalGroupName), field(terminalName), field(cooldownTimeInSeconds), field(useTimeInSeconds), field(hackTimeInSeconds),
+    field(hackHostileChance), field(minHostileHackHostileNpcs), field(maxHostileHackHostileNpcs), field(useCostInCredits), field(minHackRewardInCredits),
+    field(maxHackRewardInCredits), field(messageLawfulUse), field(messageUnlawfulHack), field(terminalList), field(eventFamilyUseList),
+    field(eventFamilyHackList));
 REFL_AUTO(type(Config), field(terminalGroups), field(terminalInitiateRadiusInMeters), field(terminalSustainRadiusInMeters),
     field(terminalNotifyAllRadiusInMeters), field(messageHackStartNotifyAll), field(messageHackFinishNotifyAll), field(factionNpcSpawnList),
     field(terminalHealthAdjustmentForStatus), field(shipActiveTerminalFuse));

@@ -12,6 +12,7 @@ namespace Plugins::Triggers
 	{
 		std::vector<float> coordinates = {0, 0, 0};
 		std::string system = "li01";
+		bool active = true;
 	};
 
 	struct Event final : Reflectable
@@ -36,6 +37,7 @@ namespace Plugins::Triggers
 
 	struct TerminalGroup final : Reflectable
 	{
+		std::string terminalGroupName = "terminal_group_1";
 		std::string terminalName = "Communications Buoy";
 		int cooldownTimeInSeconds = 1200;
 		int useTimeInSeconds = 30;
@@ -53,7 +55,7 @@ namespace Plugins::Triggers
 		std::string messageUnlawfulHack =
 		    "This is the message you see when you attempt to hack the terminal that describes the possible penalties and rewards.";
 
-		std::vector<std::wstring> terminalList;
+		std::vector<std::string> terminalList;
 		std::vector<EventFamily> eventFamilyUseList;
 		std::vector<EventFamily> eventFamilyHackList;
 	};
@@ -75,6 +77,15 @@ namespace Plugins::Triggers
 
 		bool terminalHealthAdjustmentForStatus = true;
 		std::string shipActiveTerminalFuse;
+	};
+
+	struct TriggerInfo
+	{
+		uint target = 0;
+		int time = 0;
+		bool playerHasBeenWarned = false;
+		bool inProgress = false;
+		bool onCooldown = false;
 	};
 
 	struct Global
