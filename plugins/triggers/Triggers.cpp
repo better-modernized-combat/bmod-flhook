@@ -113,7 +113,8 @@ namespace Plugins::Triggers
 	/** @ingroup Triggers
 	 * @brief Creates a point of interested and it's accompanying NPCs if there are any defined.
 	 */
-	void CreateEvent(const Event& event, const Position& position)
+	// Not called CreateEvent because Windows is awful
+	void CreatePoiEvent(const Event& event, const Position& position)
 	{
 		Vector pos = {position.coordinates[0], position.coordinates[1], position.coordinates[2]};
 		Matrix mat = EulerMatrix({0.f, 0.f, 0.f});
@@ -131,7 +132,7 @@ namespace Plugins::Triggers
 	/** @ingroup Triggers
 	 * @brief Completes a terminal interaction, rewards the player and spawns a random event selected from the appropriate pool
 	 */
-	void CompleteTerminalInteraction(const TerminalGroup& terminalGroup, TriggerInfo terminalInfo, uint client, bool isLawful)
+	void CompleteTerminalInteraction(TerminalGroup& terminalGroup, TriggerInfo terminalInfo, uint client, bool isLawful)
 	{
 		auto& eventFamililyList = isLawful ? terminalGroup.eventFamilyUseList : terminalGroup.eventFamilyHackList;
 
@@ -149,46 +150,43 @@ namespace Plugins::Triggers
 		}
 		auto& event = family.eventList[GetRandomWeight(eventWeights)];
 
-		// TODO: There should be a better way to do this?
-		std::vector<Position> activePositions;
-		for (auto& position : family.spawnPositionList)
+		// Select a random position
+		Position* position = nullptr;
+		int counter = 0;
+		do
 		{
-			if (!position.active)
+			position = &family.spawnPositionList[GetRandomNumber(0, family.spawnPositionList.size())];
+			if (counter++ > 30)
 			{
-				continue;
+				Console::ConErr(std::format("Unable to find a valid spawn position for {}. Please check your config has an appropriate number of spawn "
+				                            "locations defined for this family.",
+				    family.name));
+				return;
 			}
-			activePositions.emplace_back(position);
-		}
+		} while (position->despawnTime == 0);
 
-		auto& position = activePositions[GetRandomNumber(0, activePositions.size())];
+		// Set the Despawn Time
+		position->despawnTime = Hk::Time::GetUnixSeconds();
 
 		std::wstring rewardSectorMessage = Hk::Math::VectorToSectorCoord<std::wstring>(
-		    CreateID(position.system.c_str()), Vector {position.coordinates[0], position.coordinates[1], position.coordinates[2]});
+		    CreateID(position->system.c_str()), Vector {position->coordinates[0], position->coordinates[1], position->coordinates[2]});
 
 		Console::ConDebug(std::format("Spawning the event '{}' at {},{},{} in {}",
 		    event.name,
-		    position.coordinates[0],
-		    position.coordinates[1],
-		    position.coordinates[2],
-		    position.system));
+		    position->coordinates[0],
+		    position->coordinates[1],
+		    position->coordinates[2],
+		    position->system));
 
-		CreateEvent(event, position);
+		CreatePoiEvent(event, *position);
+
+		// TODO: Gotta print the messages here for the hacking client and the system with appropriate info
 		// TODO: std::vformat for args passed into the description
 		PrintUserCmdText(client, event.descriptionMedInfo);
 		// TODO: std::format for global->config->messageHackFinishNotifyAll to feed in positional data, faction and client.
-
-		if (!isLawful)
-		{
-			std::vector<int> weights;
-			for (const auto& eventFamily : terminalGroup.eventFamilyHackList)
-			{
-				weights.emplace_back(eventFamily.spawnWeight);
-			}
-			GetRandomWeight(weights);
-		}
 	}
 
-	void UserCmdStartTerminalInteraction(ClientId& client, TriggerInfo triggerInfo)
+	void UserCmdStartTerminalInteraction(ClientId& client, TriggerInfo triggerInfo, bool isLawful)
 	{
 		// Check to make sure the plugin has loaded dependencies and settings.
 		if (!global->pluginActive)
@@ -255,12 +253,14 @@ namespace Plugins::Triggers
 		auto clientPos = Hk::Solar::GetLocation(client, IdType::Client).value().first;
 		auto clientSystem = Hk::Solar::GetSystemBySpaceId(target).value();
 
-		// TODO: check if this is a lawful or unlawful trigger
-
-		PrintLocalUserCmdText(client,
-		    std::vformat(global->config->messageHackStartNotifyAll,
-		        std::make_wformat_args(Hk::Client::GetCharacterNameByID(client).value(), Hk::Math::VectorToSectorCoord<std::wstring>(clientSystem, clientPos))),
-		    global->config->terminalNotifyAllRadiusInMeters);
+		if (!isLawful)
+		{
+			PrintLocalUserCmdText(client,
+			    std::vformat(global->config->messageHackStartNotifyAll,
+			        std::make_wformat_args(
+			            Hk::Client::GetCharacterNameByID(client).value(), Hk::Math::VectorToSectorCoord<std::wstring>(clientSystem, clientPos))),
+			    global->config->terminalNotifyAllRadiusInMeters);
+		}
 
 		// group contains data, proceed
 		// spawn NPCs

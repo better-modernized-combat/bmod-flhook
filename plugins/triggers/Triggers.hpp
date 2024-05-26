@@ -12,7 +12,7 @@ namespace Plugins::Triggers
 	{
 		std::vector<float> coordinates = {0, 0, 0};
 		std::string system = "li01";
-		bool active = true;
+		uint despawnTime;
 	};
 
 	struct Event final : Reflectable
