@@ -49,6 +49,26 @@ namespace Plugins::Triggers
 		return weightIndex;
 	}
 
+	void LightShipFuse(uint client, const std::string& fuse)
+	{
+		auto playerShip = Hk::Player::GetShip(client).value();
+		IObjInspectImpl* inspect;
+		uint iDunno;
+
+		GetShipInspect(playerShip, inspect, iDunno);
+		Hk::Admin::LightFuse((IObjRW*)inspect, CreateID(fuse.c_str()), 0.f, 5.f, 0);
+	}
+
+	void UnLightShipFuse(uint client, const std::string& fuse)
+	{
+		auto playerShip = Hk::Player::GetShip(client).value();
+		IObjInspectImpl* inspect;
+		uint iDunno;
+
+		GetShipInspect(playerShip, inspect, iDunno);
+		Hk::Admin::UnLightFuse((IObjRW*)inspect, CreateID(fuse.c_str()));
+	}
+
 	// Function: returns true if this player is within fDistance of the target solar
 	bool clientIsInRangeOfSolar(ClientId client, uint solar, float distance)
 	{
@@ -186,7 +206,18 @@ namespace Plugins::Triggers
 		// TODO: std::format for global->config->messageHackFinishNotifyAll to feed in positional data, faction and client.
 	}
 
-	void UserCmdStartTerminalInteraction(ClientId& client, TriggerInfo triggerInfo, bool isLawful)
+	// TODO: Probably rename the below two functions
+
+	void ProcessActiveTerminal()
+	{
+	}
+
+	void TerminalInteractionTimer()
+	{
+		// Start the timer and then have a function that processes active terminal usage
+	}
+
+	void UserCmdStartTerminalInteraction(ClientId& client, const std::wstring& param)
 	{
 		// Check to make sure the plugin has loaded dependencies and settings.
 		if (!global->pluginActive)
@@ -194,12 +225,14 @@ namespace Plugins::Triggers
 			PrintUserCmdText(client, L"There was an error loading this plugin, please contact your server administrator.");
 			return;
 		}
+
 		// Check if the player is docked.
 		if (Hk::Player::GetShip(client).has_error())
 		{
 			PrintUserCmdText(client, L"You must be in space to use this function.");
 			return;
 		}
+
 		// Check if the player has a valid target
 		const auto res = Hk::Player::GetTarget(client);
 		if (res.has_error())
@@ -207,12 +240,21 @@ namespace Plugins::Triggers
 			PrintUserCmdText(client, L"You must select a valid target to use this function.");
 			return;
 		}
+
 		auto target = res.value();
+
+		// Check if the subcommand is valid
+		auto isLawful = param == L"use";
+		if (!isLawful && param != L"hack")
+		{
+			PrintUserCmdText(client, L"Invalid terminal command, valid options are 'hack' and 'use'.");
+			return;
+		}
 
 		// Check if the player is within hackingInitiateRadius
 		if (bool inRange = clientIsInRangeOfSolar(client, target, global->config->terminalInitiateRadiusInMeters); !inRange)
 		{
-			PrintUserCmdText(client, L"The target you have selected is too far away to initiate a hacking attempt. Please get closer.");
+			PrintUserCmdText(client, L"The target you have selected is too far away to interact with. Please get closer.");
 			return;
 		}
 
@@ -240,34 +282,71 @@ namespace Plugins::Triggers
 
 		if (!group)
 		{
-			PrintUserCmdText(client, L"The target you have selected is not currently hackable, please select a valid target.");
+			PrintUserCmdText(client, L"The target you have selected is not currently active, please select a valid target.");
 			return;
 		}
-		// TODO: check for is hacking and is hacked and on cooldown
 
-		triggerInfo.target = target;
-		triggerInfo.inProgress = true;
+		// Check for cooldown
+		if ((Hk::Time::GetUnixSeconds() <= group->lastActivatedTime + group->cooldownTimeInSeconds))
+		{
+			PrintUserCmdText(client, L"The target you have selected is currently on cooldown, please try again later.");
+			return;
+		}
+
+		// Check for ongoing hack
+		if (group->useInProgress)
+		{
+			PrintUserCmdText(client, L"The target you have selected is already in use, please try again later.");
+			return;
+		}
+
+		group->useInProgress = true;
+		group->lastActivatedTime = Hk::Time::GetUnixSeconds();
+
+		TriggerInfo triggerInfo {target};
 		Hk::Client::PlaySoundEffect(client, CreateID("ui_new_story_star"));
 		Hk::Client::PlaySoundEffect(client, CreateID("ui_begin_scan"));
 
-		auto clientPos = Hk::Solar::GetLocation(client, IdType::Client).value().first;
-		auto clientSystem = Hk::Solar::GetSystemBySpaceId(target).value();
+		Vector clientPos;
+		Matrix clientRot;
+		pub::SpaceObj::GetLocation(Players[client].shipId, clientPos, clientRot);
+
+		uint clientSystem;
+		pub::SpaceObj::GetSystem(target, clientSystem);
+
+		// TODO: Print a 'stay in range/intreracting' message here
 
 		if (!isLawful)
 		{
 			PrintLocalUserCmdText(client,
 			    std::vformat(global->config->messageHackStartNotifyAll,
-			        std::make_wformat_args(
-			            Hk::Client::GetCharacterNameByID(client).value(), Hk::Math::VectorToSectorCoord<std::wstring>(clientSystem, clientPos))),
+			        std::make_wformat_args(stows(group->terminalName),
+			            Hk::Client::GetCharacterNameByID(client).value(),
+			            Hk::Math::VectorToSectorCoord<std::wstring>(clientSystem, clientPos))),
 			    global->config->terminalNotifyAllRadiusInMeters);
+
+			// Spawn NPCs
+			// Decrement Rep
+			// Chance-based hostility
+			// Timer for hacking starts
 		}
 
-		// group contains data, proceed
-		// spawn NPCs
-		// start FX
-		// start timer
-		// Set solar hostile
+		if (isLawful)
+		{
+			// Print a local message informing of cost deduction
+			// Timer for using starts
+		}
+
+		LightShipFuse(client, global->config->shipActiveTerminalFuse);
+		pub::SpaceObj::SetRelativeHealth(target, 0.5f);
+
+		// cleanup of solars spawned, positions, etc
 	}
+
+	// Define usable chat commands here
+	const std::vector commands = {{
+	    CreateUserCommand(L"/terminal", L"", UserCmdStartTerminalInteraction, L"Starts a user interaction with a valid solar object."),
+	}};
 
 } // namespace Plugins::Triggers
 
@@ -287,11 +366,14 @@ REFL_AUTO(type(Config), field(terminalGroups), field(terminalInitiateRadiusInMet
 
 DefaultDllMainSettings(LoadSettings);
 
+const std::vector<Timer> timers = {{TerminalInteractionTimer, 5}};
 extern "C" EXPORT void ExportPluginInfo(PluginInfo* pi)
 {
 	pi->name("Triggers");
 	pi->shortName("triggers");
 	pi->mayUnload(true);
+	pi->commands(&commands);
+	pi->timers(&timers);
 	pi->returnCode(&global->returnCode);
 	pi->versionMajor(PluginMajorVersion::VERSION_04);
 	pi->versionMinor(PluginMinorVersion::VERSION_00);

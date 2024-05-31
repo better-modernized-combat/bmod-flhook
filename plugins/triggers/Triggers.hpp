@@ -12,7 +12,7 @@ namespace Plugins::Triggers
 	{
 		std::vector<float> coordinates = {0, 0, 0};
 		std::string system = "li01";
-		uint despawnTime;
+		uint despawnTime = 0;
 	};
 
 	struct Event final : Reflectable
@@ -39,7 +39,10 @@ namespace Plugins::Triggers
 	{
 		std::string terminalGroupName = "terminal_group_1";
 		std::string terminalName = "Communications Buoy";
-		int cooldownTimeInSeconds = 1200;
+		uint cooldownTimeInSeconds = 1200;
+		uint lastActivatedTime = 0;
+		bool useInProgress = false;
+
 		int useTimeInSeconds = 30;
 		int hackTimeInSeconds = 90;
 
@@ -82,10 +85,8 @@ namespace Plugins::Triggers
 	struct TriggerInfo
 	{
 		uint target = 0;
-		int time = 0;
+		uint time = 0;
 		bool playerHasBeenWarned = false;
-		bool inProgress = false;
-		bool onCooldown = false;
 	};
 
 	struct Global
