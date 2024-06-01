@@ -344,28 +344,31 @@ namespace Plugins::Triggers
 			            Hk::Math::VectorToSectorCoord<std::wstring>(clientSystem, clientPos))),
 			    global->config->terminalNotifyAllRadiusInMeters);
 
-			// if (GetRandomNumber(0, 100) <= int(group->hackHostileChance * 100))
-			//{
-			for (int i = 0; i < GetRandomNumber(group->minHostileHackHostileNpcs, group->maxHostileHackHostileNpcs); i++)
+			if (GetRandomNumber(0, 100) <= int(group->hackHostileChance * 100))
 			{
-				Vector npcSpawnPos = {
-				    clientPos.x + GetRandomNumber(-2000, 2000), clientPos.y + GetRandomNumber(-2000, 2000), clientPos.z + GetRandomNumber(-2000, 2000)};
+				for (int i = 0; i < GetRandomNumber(group->minHostileHackHostileNpcs, group->maxHostileHackHostileNpcs); i++)
+				{
+					Vector npcSpawnPos = {
+					    clientPos.x + GetRandomNumber(-2000, 2000), clientPos.y + GetRandomNumber(-2000, 2000), clientPos.z + GetRandomNumber(-2000, 2000)};
 
-				// Spawns an NPC from the group's possible pool and adds it to the list for this terminalGroup's live NPCs.
-				SpawnedObject npcObject;
-				npcObject.spaceId = global->npcCommunicator->CreateNpc(
-				    group->hostileHackNpcs[GetRandomNumber(0, group->hostileHackNpcs.size())], npcSpawnPos, EulerMatrix({0.f, 0.f, 0.f}), clientSystem, true);
-				npcObject.spawnTime = Hk::Time::GetUnixSeconds();
-				// This might be function scope only, you may need to pass this out with terminalInfo
-				group->activeHostileHackNpcs.emplace_back(npcObject);
+					// Spawns an NPC from the group's possible pool and adds it to the list for this terminalGroup's live NPCs.
+					SpawnedObject npcObject;
+					npcObject.spaceId = global->npcCommunicator->CreateNpc(group->hostileHackNpcs[GetRandomNumber(0, group->hostileHackNpcs.size())],
+					    npcSpawnPos,
+					    EulerMatrix({0.f, 0.f, 0.f}),
+					    clientSystem,
+					    true);
+					npcObject.spawnTime = Hk::Time::GetUnixSeconds();
+					// This might be function scope only, you may need to pass this out with terminalInfo
+					group->activeHostileHackNpcs.emplace_back(npcObject);
+				}
+
+				// TODO: This might not work as you think, test it. Sets stuff temporarily hostile
+				pub::Reputation::SetAttitude(terminalReputation, playerReputation, -0.9f);
+
+				pub::Reputation::SetReputation(
+				    playerReputation, terminalAffiliation, Hk::Player::GetRep(client, terminalAffiliation).value() - group->hackRepReduction);
 			}
-
-			// TODO: This might not work as you think, test it. Sets stuff temporarily hostile
-			pub::Reputation::SetAttitude(terminalReputation, playerReputation, -0.9f);
-
-			pub::Reputation::SetReputation(
-			    playerReputation, terminalAffiliation, Hk::Player::GetRep(client, terminalAffiliation).value() - group->hackRepReduction);
-			//}
 		}
 
 		if (isLawful)
