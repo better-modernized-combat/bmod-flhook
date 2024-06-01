@@ -344,32 +344,34 @@ namespace Plugins::Triggers
 			            Hk::Math::VectorToSectorCoord<std::wstring>(clientSystem, clientPos))),
 			    global->config->terminalNotifyAllRadiusInMeters);
 
-			if (GetRandomNumber(0, 100) <= int(group->hackHostileChance * 100))
+			// if (GetRandomNumber(0, 100) <= int(group->hackHostileChance * 100))
+			//{
+			for (int i = 0; i < GetRandomNumber(group->minHostileHackHostileNpcs, group->maxHostileHackHostileNpcs); i++)
 			{
-				for (int i = 0; i < GetRandomNumber(group->minHostileHackHostileNpcs, group->maxHostileHackHostileNpcs); i++)
-				{
-					// TODO: Probably want some kind of check here to make sure they don't just pop into existence on top of the player.
-					Vector npcSpawnPos = {
-					    clientPos.x + GetRandomNumber(-2000, 2000), clientPos.y + GetRandomNumber(-2000, 2000), clientPos.z + GetRandomNumber(-2000, 2000)};
+				Vector npcSpawnPos = {
+				    clientPos.x + GetRandomNumber(-2000, 2000), clientPos.y + GetRandomNumber(-2000, 2000), clientPos.z + GetRandomNumber(-2000, 2000)};
 
-					// Spawns our NPC and adds it to the list for this terminalGroup's live NPCs.
-					SpawnedObject npcObject;
-					npcObject.spaceId = global->npcCommunicator->CreateNpc(L"npc", npcSpawnPos, EulerMatrix({0.f, 0.f, 0.f}), clientSystem, true);
-					npcObject.spawnTime = Hk::Time::GetUnixSeconds();
-					group->activeHostileHackNpcs.emplace_back(npcObject);
-				}
-
-				// TODO: This might not work as you think, test it. Sets stuff temporarily hostile
-				pub::Reputation::SetAttitude(terminalReputation, playerReputation, -0.9f);
-
-				pub::Reputation::SetReputation(
-				    playerReputation, terminalAffiliation, Hk::Player::GetRep(client, terminalAffiliation).value() - group->hackRepReduction);
+				// Spawns an NPC from the group's possible pool and adds it to the list for this terminalGroup's live NPCs.
+				SpawnedObject npcObject;
+				npcObject.spaceId = global->npcCommunicator->CreateNpc(
+				    group->hostileHackNpcs[GetRandomNumber(0, group->hostileHackNpcs.size())], npcSpawnPos, EulerMatrix({0.f, 0.f, 0.f}), clientSystem, true);
+				npcObject.spawnTime = Hk::Time::GetUnixSeconds();
+				// This might be function scope only, you may need to pass this out with terminalInfo
+				group->activeHostileHackNpcs.emplace_back(npcObject);
 			}
+
+			// TODO: This might not work as you think, test it. Sets stuff temporarily hostile
+			pub::Reputation::SetAttitude(terminalReputation, playerReputation, -0.9f);
+
+			pub::Reputation::SetReputation(
+			    playerReputation, terminalAffiliation, Hk::Player::GetRep(client, terminalAffiliation).value() - group->hackRepReduction);
+			//}
 		}
 
 		if (isLawful)
 		{
 			// Check reputation
+			// Check credits and fail if not enough
 			// Print a local message informing of cost deduction
 		}
 
@@ -378,8 +380,7 @@ namespace Plugins::Triggers
 		LightShipFuse(client, global->config->shipActiveTerminalFuse);
 		pub::SpaceObj::SetRelativeHealth(target, 0.5f);
 
-		// cleanup of solars spawned, positions, etc
-
+		// return terminalinfo and pass it on
 		return;
 	}
 
@@ -399,7 +400,7 @@ REFL_AUTO(type(EventFamily), field(name), field(spawnWeight), field(eventList), 
 REFL_AUTO(type(TerminalGroup), field(terminalGroupName), field(terminalName), field(cooldownTimeInSeconds), field(useTimeInSeconds), field(hackTimeInSeconds),
     field(hackHostileChance), field(minHostileHackHostileNpcs), field(maxHostileHackHostileNpcs), field(useCostInCredits), field(minHackRewardInCredits),
     field(maxHackRewardInCredits), field(messageLawfulUse), field(messageUnlawfulHack), field(terminalList), field(eventFamilyUseList),
-    field(eventFamilyHackList), field(hackRepReduction));
+    field(eventFamilyHackList), field(hackRepReduction), field(hostileHackNpcs), field(messageLawfulInfo), field(messageUnlawfulInfo));
 REFL_AUTO(type(Config), field(terminalGroups), field(terminalInitiateRadiusInMeters), field(terminalSustainRadiusInMeters),
     field(terminalNotifyAllRadiusInMeters), field(messageHackStartNotifyAll), field(messageHackFinishNotifyAll), field(factionNpcSpawnList),
     field(terminalHealthAdjustmentForStatus), field(shipActiveTerminalFuse));

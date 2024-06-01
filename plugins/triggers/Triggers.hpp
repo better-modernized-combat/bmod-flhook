@@ -61,6 +61,11 @@ namespace Plugins::Triggers
 		int minHackRewardInCredits = 2000;
 		int maxHackRewardInCredits = 4000;
 
+		// clang-format off
+		std::string messageLawfulInfo = "Downloading information from this {} will cost {} credits. Do you wish to proceed? To proceed, type '/confirm'.";
+		std::string messageUnlawfulInfo = "Hacking this terminal is an unlawful act and may affect your reputation with it's owners, as well as possibly provoking a hostile response. Do you wish to proceed? To proceed, type '/confirm'.";
+		// clang-format on
+
 		std::string messageLawfulUse = "This is the message you see describing the terminal function and cost when you lawfully use the terminal.";
 		std::string messageUnlawfulHack =
 		    "This is the message you see when you attempt to hack the terminal that describes the possible penalties and rewards.";
@@ -68,6 +73,9 @@ namespace Plugins::Triggers
 		std::vector<std::string> terminalList;
 		std::vector<EventFamily> eventFamilyUseList;
 		std::vector<EventFamily> eventFamilyHackList;
+
+		// Possible NPCs that can spawn for this terminal if a hack attempt rolls hostile.
+		std::vector<std::wstring> hostileHackNpcs;
 		std::vector<SpawnedObject> activeHostileHackNpcs;
 	};
 
