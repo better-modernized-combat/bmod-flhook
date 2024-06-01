@@ -15,6 +15,12 @@ namespace Plugins::Triggers
 		uint despawnTime = 0;
 	};
 
+	struct SpawnedObject
+	{
+		uint spaceId = 0;
+		uint spawnTime = 0;
+	};
+
 	struct Event final : Reflectable
 	{
 		std::wstring solarFormation = L"test_solar_formation_01";
@@ -47,6 +53,7 @@ namespace Plugins::Triggers
 		int hackTimeInSeconds = 90;
 
 		float hackHostileChance = 0.5f;
+		float hackRepReduction = 0.05f;
 		int minHostileHackHostileNpcs = 1;
 		int maxHostileHackHostileNpcs = 3;
 
@@ -61,6 +68,7 @@ namespace Plugins::Triggers
 		std::vector<std::string> terminalList;
 		std::vector<EventFamily> eventFamilyUseList;
 		std::vector<EventFamily> eventFamilyHackList;
+		std::vector<SpawnedObject> activeHostileHackNpcs;
 	};
 
 	// Loadable json configuration

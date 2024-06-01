@@ -69,7 +69,6 @@ namespace Plugins::Triggers
 		Hk::Admin::UnLightFuse((IObjRW*)inspect, CreateID(fuse.c_str()));
 	}
 
-	// Function: returns true if this player is within fDistance of the target solar
 	bool clientIsInRangeOfSolar(ClientId client, uint solar, float distance)
 	{
 		// Get the Player position
@@ -131,7 +130,7 @@ namespace Plugins::Triggers
 	}
 
 	/** @ingroup Triggers
-	 * @brief Creates a point of interested and it's accompanying NPCs if there are any defined.
+	 * @brief Creates a point of interest and it's accompanying NPCs if there are any defined.
 	 */
 	// Not called CreateEvent because Windows is awful
 	void CreatePoiEvent(const Event& event, const Position& position)
@@ -300,6 +299,7 @@ namespace Plugins::Triggers
 			return;
 		}
 
+		// TODO: Move this after faction checks for use and such
 		group->useInProgress = true;
 		group->lastActivatedTime = Hk::Time::GetUnixSeconds();
 
@@ -314,8 +314,27 @@ namespace Plugins::Triggers
 		uint clientSystem;
 		pub::SpaceObj::GetSystem(target, clientSystem);
 
-		// TODO: Print a 'stay in range/intreracting' message here
+		// TODO: Ask Laz if this is the best way to do this inline.
+		PrintUserCmdText(client,
+		    std::format(L"Remain within {:.0f}m of the target for {} seconds in order to complete successful data retrieval.",
+		        (global->config->terminalSustainRadiusInMeters),
+		        isLawful ? group->useTimeInSeconds : group->hackTimeInSeconds));
 
+		// Fetch the terminal's reputation and affiliation values
+		int terminalReputation;
+		pub::SpaceObj::GetRep(target, terminalReputation);
+		uint terminalAffiliation;
+		pub::Reputation::GetAffiliation(terminalReputation, terminalAffiliation);
+
+		// TODO: Get the IDS Name for the faction (Move this to complete hack function)
+		uint npcFactionIds;
+		pub::Reputation::GetGroupName(terminalAffiliation, npcFactionIds);
+
+		// Fetch the player's reputation values
+		int playerReputation;
+		pub::Player::GetRep(client, playerReputation);
+
+		// If the hack is unlawful, roll to see if there's a rep hit and hostile spawn.
 		if (!isLawful)
 		{
 			PrintLocalUserCmdText(client,
@@ -325,22 +344,43 @@ namespace Plugins::Triggers
 			            Hk::Math::VectorToSectorCoord<std::wstring>(clientSystem, clientPos))),
 			    global->config->terminalNotifyAllRadiusInMeters);
 
-			// Spawn NPCs
-			// Decrement Rep
-			// Chance-based hostility
-			// Timer for hacking starts
+			if (GetRandomNumber(0, 100) <= int(group->hackHostileChance * 100))
+			{
+				for (int i = 0; i < GetRandomNumber(group->minHostileHackHostileNpcs, group->maxHostileHackHostileNpcs); i++)
+				{
+					// TODO: Probably want some kind of check here to make sure they don't just pop into existence on top of the player.
+					Vector npcSpawnPos = {
+					    clientPos.x + GetRandomNumber(-2000, 2000), clientPos.y + GetRandomNumber(-2000, 2000), clientPos.z + GetRandomNumber(-2000, 2000)};
+
+					// Spawns our NPC and adds it to the list for this terminalGroup's live NPCs.
+					SpawnedObject npcObject;
+					npcObject.spaceId = global->npcCommunicator->CreateNpc(L"npc", npcSpawnPos, EulerMatrix({0.f, 0.f, 0.f}), clientSystem, true);
+					npcObject.spawnTime = Hk::Time::GetUnixSeconds();
+					group->activeHostileHackNpcs.emplace_back(npcObject);
+				}
+
+				// TODO: This might not work as you think, test it. Sets stuff temporarily hostile
+				pub::Reputation::SetAttitude(terminalReputation, playerReputation, -0.9f);
+
+				pub::Reputation::SetReputation(
+				    playerReputation, terminalAffiliation, Hk::Player::GetRep(client, terminalAffiliation).value() - group->hackRepReduction);
+			}
 		}
 
 		if (isLawful)
 		{
+			// Check reputation
 			// Print a local message informing of cost deduction
-			// Timer for using starts
 		}
+
+		// Timer (use a ternary to determine which value
 
 		LightShipFuse(client, global->config->shipActiveTerminalFuse);
 		pub::SpaceObj::SetRelativeHealth(target, 0.5f);
 
 		// cleanup of solars spawned, positions, etc
+
+		return;
 	}
 
 	// Define usable chat commands here
@@ -359,7 +399,7 @@ REFL_AUTO(type(EventFamily), field(name), field(spawnWeight), field(eventList), 
 REFL_AUTO(type(TerminalGroup), field(terminalGroupName), field(terminalName), field(cooldownTimeInSeconds), field(useTimeInSeconds), field(hackTimeInSeconds),
     field(hackHostileChance), field(minHostileHackHostileNpcs), field(maxHostileHackHostileNpcs), field(useCostInCredits), field(minHackRewardInCredits),
     field(maxHackRewardInCredits), field(messageLawfulUse), field(messageUnlawfulHack), field(terminalList), field(eventFamilyUseList),
-    field(eventFamilyHackList));
+    field(eventFamilyHackList), field(hackRepReduction));
 REFL_AUTO(type(Config), field(terminalGroups), field(terminalInitiateRadiusInMeters), field(terminalSustainRadiusInMeters),
     field(terminalNotifyAllRadiusInMeters), field(messageHackStartNotifyAll), field(messageHackFinishNotifyAll), field(factionNpcSpawnList),
     field(terminalHealthAdjustmentForStatus), field(shipActiveTerminalFuse));
