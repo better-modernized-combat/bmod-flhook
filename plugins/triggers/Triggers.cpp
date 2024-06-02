@@ -242,9 +242,12 @@ namespace Plugins::Triggers
 
 		auto target = res.value();
 
+		auto action = GetParam(param, L' ', 0);
+		auto confirm = GetParam(param, L' ', 1);
+
 		// Check if the subcommand is valid
-		auto isLawful = param == L"use";
-		if (!isLawful && param != L"hack")
+		auto isLawful = action == L"use";
+		if (!isLawful && action != L"hack")
 		{
 			PrintUserCmdText(client, L"Invalid terminal command, valid options are 'hack' and 'use'.");
 			return;
@@ -299,12 +302,7 @@ namespace Plugins::Triggers
 			return;
 		}
 
-		// TODO: Move this after faction checks for use and such
-		group->useInProgress = true;
-		group->lastActivatedTime = Hk::Time::GetUnixSeconds();
-
 		TriggerInfo triggerInfo {target};
-		Hk::Client::PlaySoundEffect(client, CreateID("ui_new_story_star"));
 		Hk::Client::PlaySoundEffect(client, CreateID("ui_begin_scan"));
 
 		Vector clientPos;
@@ -314,19 +312,13 @@ namespace Plugins::Triggers
 		uint clientSystem;
 		pub::SpaceObj::GetSystem(target, clientSystem);
 
-		// TODO: Ask Laz if this is the best way to do this inline.
-		PrintUserCmdText(client,
-		    std::format(L"Remain within {:.0f}m of the target for {} seconds in order to complete successful data retrieval.",
-		        (global->config->terminalSustainRadiusInMeters),
-		        isLawful ? group->useTimeInSeconds : group->hackTimeInSeconds));
-
 		// Fetch the terminal's reputation and affiliation values
 		int terminalReputation;
 		pub::SpaceObj::GetRep(target, terminalReputation);
 		uint terminalAffiliation;
 		pub::Reputation::GetAffiliation(terminalReputation, terminalAffiliation);
 
-		// TODO: Get the IDS Name for the faction (Move this to complete hack function)
+		// Get the IDS Name for the faction We use this in several messages.
 		uint npcFactionIds;
 		pub::Reputation::GetGroupName(terminalAffiliation, npcFactionIds);
 
@@ -337,6 +329,16 @@ namespace Plugins::Triggers
 		// If the hack is unlawful, roll to see if there's a rep hit and hostile spawn.
 		if (!isLawful)
 		{
+			if (confirm != L"confirm")
+			{
+				PrintUserCmdText(client,
+				    std::format(L"Hacking this terminal is an unlawful act and may affect your reputation with {}, as well as possibly provoking a hostile "
+				                L"response. Do you wish to proceed? To proceed, type '/terminal hack confirm'.",
+				        Hk::Message::GetWStringFromIdS(npcFactionIds)));
+				return;
+			}
+
+			// This fires regardless of chance-based hostility.
 			PrintLocalUserCmdText(client,
 			    std::vformat(global->config->messageHackStartNotifyAll,
 			        std::make_wformat_args(stows(group->terminalName),
@@ -363,23 +365,63 @@ namespace Plugins::Triggers
 					group->activeHostileHackNpcs.emplace_back(npcObject);
 				}
 
-				// TODO: This might not work as you think, test it. Sets stuff temporarily hostile
+				// Temporarily set the faction hostile to the player.
 				pub::Reputation::SetAttitude(terminalReputation, playerReputation, -0.9f);
 
+				// Decrement the player's reputation by group->hackRepReduction
 				pub::Reputation::SetReputation(
 				    playerReputation, terminalAffiliation, Hk::Player::GetRep(client, terminalAffiliation).value() - group->hackRepReduction);
+
+				PrintUserCmdText(client,
+				    std::format(L"Your attempt to hack the {} has been detected and your reputation with {} has been adjusted by -{} accordingly.",
+				        stows(group->terminalName),
+				        Hk::Message::GetWStringFromIdS(npcFactionIds),
+				        group->hackRepReduction));
+			}
+		}
+		else
+		{
+			if (confirm != L"confirm")
+			{
+				PrintUserCmdText(client,
+				    std::format(L"Downloading data from this {} will cost {} credits and will take {} seconds. Do you wish to proceed? To proceed type "
+				                L"'/terminal use confirm'.",
+				        stows(group->terminalName),
+				        group->useCostInCredits,
+				        group->useTimeInSeconds));
+				return;
+			}
+
+			if (Hk::Player::GetRep(client, terminalAffiliation).value() <= -0.25)
+			{
+				PrintUserCmdText(client,
+				    std::format(L"Your reputation with {} isn't high enough to legally make use of this {}.",
+				        Hk::Message::GetWStringFromIdS(npcFactionIds),
+				        stows(group->terminalName)));
+				return;
+			}
+			else
+			{
+				// Listen for response commands and if so:
+
+				if (Hk::Player::GetCash(client).value() < group->useCostInCredits)
+				{
+					PrintUserCmdText(client, L"You don't have enough credits to use this terminal.");
+					return;
+				}
 			}
 		}
 
-		if (isLawful)
-		{
-			// Check reputation
-			// Check credits and fail if not enough
-			// Print a local message informing of cost deduction
-		}
+		PrintUserCmdText(client,
+		    std::format(L"Remain within {:.0f}m of the target for {} seconds in order to complete successful data retrieval.",
+		        (global->config->terminalSustainRadiusInMeters),
+		        isLawful ? group->useTimeInSeconds : group->hackTimeInSeconds));
 
 		// Timer (use a ternary to determine which value
 
+		group->useInProgress = true;
+		group->lastActivatedTime = Hk::Time::GetUnixSeconds();
+		Hk::Client::PlaySoundEffect(client, CreateID("ui_new_story_star"));
 		LightShipFuse(client, global->config->shipActiveTerminalFuse);
 		pub::SpaceObj::SetRelativeHealth(target, 0.5f);
 
@@ -396,14 +438,14 @@ namespace Plugins::Triggers
 
 using namespace Plugins::Triggers;
 
+REFL_AUTO(type(PlayerConfig), field(usePrompt), field(hackPrompt));
 REFL_AUTO(type(Position), field(coordinates), field(system));
 REFL_AUTO(type(Event), field(name), field(solarFormation), field(npcs), field(spawnWeight), field(descriptionLowInfo), field(descriptionMedInfo),
     field(descriptionHighInfo), field(lifetimeInSeconds));
 REFL_AUTO(type(EventFamily), field(name), field(spawnWeight), field(eventList), field(spawnPositionList));
 REFL_AUTO(type(TerminalGroup), field(terminalGroupName), field(terminalName), field(cooldownTimeInSeconds), field(useTimeInSeconds), field(hackTimeInSeconds),
     field(hackHostileChance), field(minHostileHackHostileNpcs), field(maxHostileHackHostileNpcs), field(useCostInCredits), field(minHackRewardInCredits),
-    field(maxHackRewardInCredits), field(messageLawfulUse), field(messageUnlawfulHack), field(terminalList), field(eventFamilyUseList),
-    field(eventFamilyHackList), field(hackRepReduction), field(hostileHackNpcs), field(messageLawfulInfo), field(messageUnlawfulInfo));
+    field(maxHackRewardInCredits), field(terminalList), field(eventFamilyUseList), field(eventFamilyHackList), field(hackRepReduction), field(hostileHackNpcs));
 REFL_AUTO(type(Config), field(terminalGroups), field(terminalInitiateRadiusInMeters), field(terminalSustainRadiusInMeters),
     field(terminalNotifyAllRadiusInMeters), field(messageHackStartNotifyAll), field(messageHackFinishNotifyAll), field(factionNpcSpawnList),
     field(terminalHealthAdjustmentForStatus), field(shipActiveTerminalFuse));

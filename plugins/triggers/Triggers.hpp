@@ -8,6 +8,12 @@
 namespace Plugins::Triggers
 {
 
+	struct PlayerConfig final : Reflectable
+	{
+		bool usePrompt = true;
+		bool hackPrompt = true;
+	};
+
 	struct Position final : Reflectable
 	{
 		std::vector<float> coordinates = {0, 0, 0};
@@ -60,15 +66,6 @@ namespace Plugins::Triggers
 		int useCostInCredits = 7500;
 		int minHackRewardInCredits = 2000;
 		int maxHackRewardInCredits = 4000;
-
-		// clang-format off
-		std::string messageLawfulInfo = "Downloading information from this {} will cost {} credits. Do you wish to proceed? To proceed, type '/confirm'.";
-		std::string messageUnlawfulInfo = "Hacking this terminal is an unlawful act and may affect your reputation with it's owners, as well as possibly provoking a hostile response. Do you wish to proceed? To proceed, type '/confirm'.";
-		// clang-format on
-
-		std::string messageLawfulUse = "This is the message you see describing the terminal function and cost when you lawfully use the terminal.";
-		std::string messageUnlawfulHack =
-		    "This is the message you see when you attempt to hack the terminal that describes the possible penalties and rewards.";
 
 		std::vector<std::string> terminalList;
 		std::vector<EventFamily> eventFamilyUseList;
