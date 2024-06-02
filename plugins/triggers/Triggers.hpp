@@ -109,5 +109,6 @@ namespace Plugins::Triggers
 		Plugins::Npc::NpcCommunicator* npcCommunicator = nullptr;
 		Plugins::SolarControl::SolarCommunicator* solarCommunicator = nullptr;
 		bool pluginActive = true;
+		std::map<CAccount*, PlayerConfig> playerConfigs;
 	};
 } // namespace Plugins::Triggers

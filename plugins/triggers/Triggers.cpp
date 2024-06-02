@@ -216,12 +216,75 @@ namespace Plugins::Triggers
 		// Start the timer and then have a function that processes active terminal usage
 	}
 
+	void SavePlayerConfigToJson(CAccount* account)
+	{
+		auto settingsPath = Hk::Client::GetAccountDirName(account);
+		char dataPath[MAX_PATH];
+		GetUserDataPath(dataPath);
+		Serializer::SaveToJson(global->playerConfigs[account], std::format("{}\\Accts\\MultiPlayer\\{}\\triggers.json", dataPath, wstos(settingsPath)));
+	}
+
+	void LoadPlayerConfigFromJson(CAccount* account)
+	{
+		auto settingsPath = Hk::Client::GetAccountDirName(account);
+		char dataPath[MAX_PATH];
+		GetUserDataPath(dataPath);
+		auto settings = Serializer::JsonToObject<PlayerConfig>(std::format("{}\\Accts\\MultiPlayer\\{}\\triggers.json", dataPath, wstos(settingsPath)), true);
+		global->playerConfigs[account] = settings;
+	}
+
+	void OnLogin([[maybe_unused]] struct SLoginInfo const& login, ClientId& client)
+	{
+		auto account = Hk::Client::GetAccountByClientID(client);
+		auto accountId = account->wszAccId;
+		LoadPlayerConfigFromJson(account);
+		AddLog(LogType::Normal, LogLevel::Debug, std::format("Loading settings for {} from stored json file...", wstos(accountId)));
+	}
+
+	void UserCmdTogglePlayerConfigs(ClientId& client, const std::wstring& param)
+	{
+		auto option = GetParam(param, L' ', 1);
+		auto account = Hk::Client::GetAccountByClientID(client);
+
+		if (option == L"togglehack")
+		{
+			global->playerConfigs[account].hackPrompt = !global->playerConfigs[account].hackPrompt;
+			PrintUserCmdText(client, std::format(L"Toggled the hacking prompt: {}", global->playerConfigs[account].hackPrompt ? L"ON" : L"OFF"));
+			SavePlayerConfigToJson(account);
+		}
+		else if (option == L"toggleuse")
+		{
+			global->playerConfigs[account].usePrompt = !global->playerConfigs[account].usePrompt;
+			PrintUserCmdText(client, std::format(L"Toggled the use prompt: {}", global->playerConfigs[account].usePrompt ? L"ON" : L"OFF"));
+			SavePlayerConfigToJson(account);
+		}
+		else
+		{
+			PrintUserCmdText(client, L"Configuration Options:");
+			PrintUserCmdText(client,
+			    std::format(L"'/terminal configure togglehack': Toggles the warning when attempting to hack a terminal with '/terminal hack': {}",
+			        global->playerConfigs[account].hackPrompt ? L"ON" : L"OFF"));
+			PrintUserCmdText(client,
+			    std::format(L"'/terminal configure toggleuse': Toggles the warning when attempting to use a terminal with '/terminal use': {}",
+			        global->playerConfigs[account].usePrompt ? L"ON" : L"OFF"));
+		}
+	}
+
 	void UserCmdStartTerminalInteraction(ClientId& client, const std::wstring& param)
 	{
 		// Check to make sure the plugin has loaded dependencies and settings.
 		if (!global->pluginActive)
 		{
 			PrintUserCmdText(client, L"There was an error loading this plugin, please contact your server administrator.");
+			return;
+		}
+
+		auto action = GetParam(param, L' ', 0);
+		auto confirm = GetParam(param, L' ', 1);
+
+		if (action == L"configure")
+		{
+			UserCmdTogglePlayerConfigs(client, param);
 			return;
 		}
 
@@ -242,14 +305,11 @@ namespace Plugins::Triggers
 
 		auto target = res.value();
 
-		auto action = GetParam(param, L' ', 0);
-		auto confirm = GetParam(param, L' ', 1);
-
 		// Check if the subcommand is valid
 		auto isLawful = action == L"use";
 		if (!isLawful && action != L"hack")
 		{
-			PrintUserCmdText(client, L"Invalid terminal command, valid options are 'hack' and 'use'.");
+			PrintUserCmdText(client, L"Invalid terminal command, valid options are 'hack', 'use' and 'configure'.");
 			return;
 		}
 
@@ -464,4 +524,5 @@ extern "C" EXPORT void ExportPluginInfo(PluginInfo* pi)
 	pi->versionMajor(PluginMajorVersion::VERSION_04);
 	pi->versionMinor(PluginMinorVersion::VERSION_00);
 	pi->emplaceHook(HookedCall::FLHook__LoadSettings, &LoadSettings, HookStep::After);
+	pi->emplaceHook(HookedCall::IServerImpl__Login, &OnLogin, HookStep::After);
 }
