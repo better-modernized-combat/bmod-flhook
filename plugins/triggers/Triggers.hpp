@@ -52,8 +52,6 @@ namespace Plugins::Triggers
 		std::string terminalGroupName = "terminal_group_1";
 		std::string terminalName = "Communications Buoy";
 		uint cooldownTimeInSeconds = 1200;
-		uint lastActivatedTime = 0;
-		bool useInProgress = false;
 
 		int useTimeInSeconds = 30;
 		int hackTimeInSeconds = 90;
@@ -74,6 +72,15 @@ namespace Plugins::Triggers
 		// Possible NPCs that can spawn for this terminal if a hack attempt rolls hostile.
 		std::vector<std::wstring> hostileHackNpcs;
 		std::vector<SpawnedObject> activeHostileHackNpcs;
+	};
+
+	struct RuntimeTerminalGroup
+	{
+		TerminalGroup* data = nullptr;
+		std::vector<uint> terminalList;
+		uint lastActivatedTime = 0;
+		bool useInProgress = false;
+		uint currentTerminal = 0;
 	};
 
 	// Loadable json configuration
@@ -97,18 +104,20 @@ namespace Plugins::Triggers
 
 	struct TriggerInfo
 	{
-		uint target = 0;
+		uint group = 0;
 		uint time = 0;
 		bool playerHasBeenWarned = false;
 	};
 
 	struct Global
 	{
+		std::array<TriggerInfo, 255> activeTerminals;
 		std::unique_ptr<Config> config = nullptr;
 		ReturnCode returnCode = ReturnCode::Default;
 		Plugins::Npc::NpcCommunicator* npcCommunicator = nullptr;
 		Plugins::SolarControl::SolarCommunicator* solarCommunicator = nullptr;
 		bool pluginActive = true;
 		std::map<CAccount*, PlayerConfig> playerConfigs;
+		std::vector<RuntimeTerminalGroup> runtimeGroups;
 	};
 } // namespace Plugins::Triggers

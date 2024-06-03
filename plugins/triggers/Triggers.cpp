@@ -127,6 +127,18 @@ namespace Plugins::Triggers
 			Console::ConErr(std::format("Critical components of Triggers were not found or were configured incorrectly. The plugin has been disabled."));
 			return;
 		}
+
+		// Preprocess the terminal list so we don't have to hash it each time.
+		for (auto& group : global->config->terminalGroups)
+		{
+			RuntimeTerminalGroup runtimeGroup;
+			runtimeGroup.data = &group;
+			for (const auto& terminal : group.terminalList)
+			{
+				runtimeGroup.terminalList.emplace_back(CreateID(terminal.c_str()));
+			}
+			global->runtimeGroups.emplace_back(runtimeGroup);
+		}
 	}
 
 	/** @ingroup Triggers
@@ -206,6 +218,14 @@ namespace Plugins::Triggers
 	}
 
 	// TODO: Probably rename the below two functions
+
+	void HandleDisconnect()
+	{
+	}
+
+	void HandleOutOfRange()
+	{
+	}
 
 	void ProcessActiveTerminal()
 	{
@@ -320,15 +340,15 @@ namespace Plugins::Triggers
 			return;
 		}
 
-		TerminalGroup* group = nullptr;
+		RuntimeTerminalGroup* group = nullptr;
 
-		// Check if this solar is on the list of availlable terminals
-		for (auto& terminalGroup : global->config->terminalGroups)
+		//  Check if this solar is on the list of availlable terminals
+		for (auto& terminalGroup : global->runtimeGroups)
 		{
 			auto found = false;
 			for (const auto& terminal : terminalGroup.terminalList)
 			{
-				if (CreateID(terminal.c_str()) == target)
+				if (terminal == target)
 				{
 					found = true;
 					break;
@@ -349,7 +369,7 @@ namespace Plugins::Triggers
 		}
 
 		// Check for cooldown
-		if ((Hk::Time::GetUnixSeconds() <= group->lastActivatedTime + group->cooldownTimeInSeconds))
+		if ((Hk::Time::GetUnixSeconds() <= group->lastActivatedTime + group->data->cooldownTimeInSeconds))
 		{
 			PrintUserCmdText(client, L"The target you have selected is currently on cooldown, please try again later.");
 			return;
@@ -386,10 +406,11 @@ namespace Plugins::Triggers
 		int playerReputation;
 		pub::Player::GetRep(client, playerReputation);
 
+		// TODO: Make the player setting preferences disable the prompts here where appropriate
 		// If the hack is unlawful, roll to see if there's a rep hit and hostile spawn.
 		if (!isLawful)
 		{
-			if (confirm != L"confirm")
+			if (confirm != L"confirm" && global->playerConfigs[Hk::Client::GetAccountByClientID(client)].hackPrompt)
 			{
 				PrintUserCmdText(client,
 				    std::format(L"Hacking this terminal is an unlawful act and may affect your reputation with {}, as well as possibly provoking a hostile "
@@ -401,28 +422,29 @@ namespace Plugins::Triggers
 			// This fires regardless of chance-based hostility.
 			PrintLocalUserCmdText(client,
 			    std::vformat(global->config->messageHackStartNotifyAll,
-			        std::make_wformat_args(stows(group->terminalName),
+			        std::make_wformat_args(stows(group->data->terminalName),
 			            Hk::Client::GetCharacterNameByID(client).value(),
 			            Hk::Math::VectorToSectorCoord<std::wstring>(clientSystem, clientPos))),
 			    global->config->terminalNotifyAllRadiusInMeters);
 
-			if (GetRandomNumber(0, 100) <= int(group->hackHostileChance * 100))
+			if (GetRandomNumber(0, 100) <= int(group->data->hackHostileChance * 100))
 			{
-				for (int i = 0; i < GetRandomNumber(group->minHostileHackHostileNpcs, group->maxHostileHackHostileNpcs); i++)
+				for (int i = 0; i < GetRandomNumber(group->data->minHostileHackHostileNpcs, group->data->maxHostileHackHostileNpcs); i++)
 				{
 					Vector npcSpawnPos = {
 					    clientPos.x + GetRandomNumber(-2000, 2000), clientPos.y + GetRandomNumber(-2000, 2000), clientPos.z + GetRandomNumber(-2000, 2000)};
 
 					// Spawns an NPC from the group's possible pool and adds it to the list for this terminalGroup's live NPCs.
 					SpawnedObject npcObject;
-					npcObject.spaceId = global->npcCommunicator->CreateNpc(group->hostileHackNpcs[GetRandomNumber(0, group->hostileHackNpcs.size())],
-					    npcSpawnPos,
-					    EulerMatrix({0.f, 0.f, 0.f}),
-					    clientSystem,
-					    true);
+					npcObject.spaceId =
+					    global->npcCommunicator->CreateNpc(group->data->hostileHackNpcs[GetRandomNumber(0, group->data->hostileHackNpcs.size())],
+					        npcSpawnPos,
+					        EulerMatrix({0.f, 0.f, 0.f}),
+					        clientSystem,
+					        true);
 					npcObject.spawnTime = Hk::Time::GetUnixSeconds();
 					// This might be function scope only, you may need to pass this out with terminalInfo
-					group->activeHostileHackNpcs.emplace_back(npcObject);
+					group->data->activeHostileHackNpcs.emplace_back(npcObject);
 				}
 
 				// Temporarily set the faction hostile to the player.
@@ -430,25 +452,25 @@ namespace Plugins::Triggers
 
 				// Decrement the player's reputation by group->hackRepReduction
 				pub::Reputation::SetReputation(
-				    playerReputation, terminalAffiliation, Hk::Player::GetRep(client, terminalAffiliation).value() - group->hackRepReduction);
+				    playerReputation, terminalAffiliation, Hk::Player::GetRep(client, terminalAffiliation).value() - group->data->hackRepReduction);
 
 				PrintUserCmdText(client,
 				    std::format(L"Your attempt to hack the {} has been detected and your reputation with {} has been adjusted by -{} accordingly.",
-				        stows(group->terminalName),
+				        stows(group->data->terminalName),
 				        Hk::Message::GetWStringFromIdS(npcFactionIds),
-				        group->hackRepReduction));
+				        group->data->hackRepReduction));
 			}
 		}
 		else
 		{
-			if (confirm != L"confirm")
+			if (confirm != L"confirm" && global->playerConfigs[Hk::Client::GetAccountByClientID(client)].usePrompt)
 			{
 				PrintUserCmdText(client,
 				    std::format(L"Downloading data from this {} will cost {} credits and will take {} seconds. Do you wish to proceed? To proceed type "
 				                L"'/terminal use confirm'.",
-				        stows(group->terminalName),
-				        group->useCostInCredits,
-				        group->useTimeInSeconds));
+				        stows(group->data->terminalName),
+				        group->data->useCostInCredits,
+				        group->data->useTimeInSeconds));
 				return;
 			}
 
@@ -457,14 +479,14 @@ namespace Plugins::Triggers
 				PrintUserCmdText(client,
 				    std::format(L"Your reputation with {} isn't high enough to legally make use of this {}.",
 				        Hk::Message::GetWStringFromIdS(npcFactionIds),
-				        stows(group->terminalName)));
+				        stows(group->data->terminalName)));
 				return;
 			}
 			else
 			{
 				// Listen for response commands and if so:
 
-				if (Hk::Player::GetCash(client).value() < group->useCostInCredits)
+				if (Hk::Player::GetCash(client).value() < group->data->useCostInCredits)
 				{
 					PrintUserCmdText(client, L"You don't have enough credits to use this terminal.");
 					return;
@@ -475,11 +497,12 @@ namespace Plugins::Triggers
 		PrintUserCmdText(client,
 		    std::format(L"Remain within {:.0f}m of the target for {} seconds in order to complete successful data retrieval.",
 		        (global->config->terminalSustainRadiusInMeters),
-		        isLawful ? group->useTimeInSeconds : group->hackTimeInSeconds));
+		        isLawful ? group->data->useTimeInSeconds : group->data->hackTimeInSeconds));
 
-		// Timer (use a ternary to determine which value
+		// Timer use a ternary to determine which value
 
 		group->useInProgress = true;
+		// TODO: This probably needs to be set in the complete instead
 		group->lastActivatedTime = Hk::Time::GetUnixSeconds();
 		Hk::Client::PlaySoundEffect(client, CreateID("ui_new_story_star"));
 		LightShipFuse(client, global->config->shipActiveTerminalFuse);
