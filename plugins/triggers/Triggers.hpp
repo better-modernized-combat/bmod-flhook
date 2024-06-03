@@ -76,11 +76,13 @@ namespace Plugins::Triggers
 
 	struct RuntimeTerminalGroup
 	{
+		uint activeClient = 0;
 		TerminalGroup* data = nullptr;
 		std::vector<uint> terminalList;
 		uint lastActivatedTime = 0;
-		bool useInProgress = false;
 		uint currentTerminal = 0;
+
+		bool playerHasBeenWarned = false;
 	};
 
 	// Loadable json configuration
@@ -102,16 +104,8 @@ namespace Plugins::Triggers
 		std::string shipActiveTerminalFuse;
 	};
 
-	struct TriggerInfo
-	{
-		uint group = 0;
-		uint time = 0;
-		bool playerHasBeenWarned = false;
-	};
-
 	struct Global
 	{
-		std::array<TriggerInfo, 255> activeTerminals;
 		std::unique_ptr<Config> config = nullptr;
 		ReturnCode returnCode = ReturnCode::Default;
 		Plugins::Npc::NpcCommunicator* npcCommunicator = nullptr;

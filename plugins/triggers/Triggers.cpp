@@ -69,7 +69,7 @@ namespace Plugins::Triggers
 		Hk::Admin::UnLightFuse((IObjRW*)inspect, CreateID(fuse.c_str()));
 	}
 
-	bool clientIsInRangeOfSolar(ClientId client, uint solar, float distance)
+	bool ClientIsInRangeOfSolar(ClientId client, uint solar, float distance)
 	{
 		// Get the Player position
 		auto playerPos = Hk::Solar::GetLocation(client, IdType::Client);
@@ -163,7 +163,7 @@ namespace Plugins::Triggers
 	/** @ingroup Triggers
 	 * @brief Completes a terminal interaction, rewards the player and spawns a random event selected from the appropriate pool
 	 */
-	void CompleteTerminalInteraction(TerminalGroup& terminalGroup, TriggerInfo terminalInfo, uint client, bool isLawful)
+	void CompleteTerminalInteraction(TerminalGroup& terminalGroup, uint client, bool isLawful)
 	{
 		auto& eventFamililyList = isLawful ? terminalGroup.eventFamilyUseList : terminalGroup.eventFamilyHackList;
 
@@ -217,23 +217,70 @@ namespace Plugins::Triggers
 		// TODO: std::format for global->config->messageHackFinishNotifyAll to feed in positional data, faction and client.
 	}
 
-	// TODO: Probably rename the below two functions
-
-	void HandleDisconnect()
+	bool HandleDisconnect(uint client)
 	{
+		// Checks if the player has a ship before proceeding. This handles disconnects, crashing and docking.
+		if (Hk::Player::GetShip(client).has_value())
+		{
+			return false;
+		}
+
+		// Notify the player, play an audio cue, turn off the fuse and reset the timer, failing the objective.
+		PrintUserCmdText(client, L"You have left the area, the hack has failed.");
+		Hk::Client::PlaySoundEffect(client, CreateID("ui_select_remove"));
+		pub::SpaceObj::SetRelativeHealth(global->runtimeGroups[client].currentTerminal, 1.f);
+		global->runtimeGroups[client].activeClient = 0;
+
+		return true;
 	}
 
-	void HandleOutOfRange()
+	bool HandleOutOfRange(uint client)
 	{
+		if (ClientIsInRangeOfSolar(client, global->runtimeGroups[client].currentTerminal, global->config->terminalSustainRadiusInMeters))
+		{
+			return false;
+		}
+
+		// Set the target's relative Health to half, triggering the effect fuse
+		pub::SpaceObj::SetRelativeHealth(global->runtimeGroups[client].currentTerminal, 0.4f);
+
+		if (global->runtimeGroups[client].playerHasBeenWarned)
+		{
+			// Notify the player, play an audio cue, turn off the fuses, reset the timer and the warning flag, failing the objective.
+			PrintUserCmdText(client, L"You're out of range, the hack has failed.");
+			Hk::Client::PlaySoundEffect(client, CreateID("ui_select_remove"));
+			UnLightShipFuse(client, global->config->shipActiveTerminalFuse);
+			pub::SpaceObj::SetRelativeHealth(global->runtimeGroups[client].currentTerminal, 1.f);
+			global->runtimeGroups[client].activeClient = 0;
+			global->runtimeGroups[client].playerHasBeenWarned = false;
+			return true;
+		}
+
+		// Warn the player they're out of range for a cycle and set the beenWarned variable.
+		PrintUserCmdText(client, L"Warning, you are moving out of range, the hack will fail if you don't get closer.");
+
+		// Play a sound effect for the player to telegraph that they're leaving the area.
+		Hk::Client::PlaySoundEffect(client, CreateID("ui_filter_operation"));
+		pub::SpaceObj::SetRelativeHealth(global->runtimeGroups[client].currentTerminal, 0.4f);
+
+		global->runtimeGroups[client].playerHasBeenWarned = true;
+		return true;
 	}
 
-	void ProcessActiveTerminal()
+	void ProcessActiveTerminal(const uint client)
 	{
+		if (global->runtimeGroups[client].activeClient)
+		{
+		}
 	}
 
 	void TerminalInteractionTimer()
 	{
-		// Start the timer and then have a function that processes active terminal usage
+		// Loops over the active terminals every 5 seconds and processes them.
+		for (auto client = 0u; client != global->runtimeGroups.size(); client++)
+		{
+			ProcessActiveTerminal(client);
+		}
 	}
 
 	void SavePlayerConfigToJson(CAccount* account)
@@ -334,7 +381,7 @@ namespace Plugins::Triggers
 		}
 
 		// Check if the player is within hackingInitiateRadius
-		if (bool inRange = clientIsInRangeOfSolar(client, target, global->config->terminalInitiateRadiusInMeters); !inRange)
+		if (bool inRange = ClientIsInRangeOfSolar(client, target, global->config->terminalInitiateRadiusInMeters); !inRange)
 		{
 			PrintUserCmdText(client, L"The target you have selected is too far away to interact with. Please get closer.");
 			return;
@@ -376,13 +423,12 @@ namespace Plugins::Triggers
 		}
 
 		// Check for ongoing hack
-		if (group->useInProgress)
+		if (group->activeClient)
 		{
 			PrintUserCmdText(client, L"The target you have selected is already in use, please try again later.");
 			return;
 		}
 
-		TriggerInfo triggerInfo {target};
 		Hk::Client::PlaySoundEffect(client, CreateID("ui_begin_scan"));
 
 		Vector clientPos;
@@ -501,14 +547,15 @@ namespace Plugins::Triggers
 
 		// Timer use a ternary to determine which value
 
-		group->useInProgress = true;
+		group->activeClient = client;
 		// TODO: This probably needs to be set in the complete instead
 		group->lastActivatedTime = Hk::Time::GetUnixSeconds();
 		Hk::Client::PlaySoundEffect(client, CreateID("ui_new_story_star"));
 		LightShipFuse(client, global->config->shipActiveTerminalFuse);
 		pub::SpaceObj::SetRelativeHealth(target, 0.5f);
 
-		// return terminalinfo and pass it on
+		// Assign the terminal target to the global vector
+		global->runtimeGroups[client].currentTerminal = target;
 		return;
 	}
 
