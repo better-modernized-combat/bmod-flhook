@@ -163,9 +163,11 @@ namespace Plugins::Triggers
 	/** @ingroup Triggers
 	 * @brief Completes a terminal interaction, rewards the player and spawns a random event selected from the appropriate pool
 	 */
-	void CompleteTerminalInteraction(TerminalGroup& terminalGroup, uint client, bool isLawful)
+	// void CompleteTerminalInteraction(TerminalGroup& terminalGroup, uint client, bool isLawful)
+
+	void CompleteTerminalInteraction(RuntimeTerminalGroup& group)
 	{
-		auto& eventFamililyList = isLawful ? terminalGroup.eventFamilyUseList : terminalGroup.eventFamilyHackList;
+		auto& eventFamililyList = group.currentTerminalIsLawful ? group.data->eventFamilyUseList : group.data->eventFamilyHackList;
 
 		std::vector<int> familyWeights;
 		for (const auto& eventFamily : eventFamililyList)
@@ -181,12 +183,20 @@ namespace Plugins::Triggers
 		}
 		auto& event = family.eventList[GetRandomWeight(eventWeights)];
 
-		// Select a random position
+		//  Select a random position
 		Position* position = nullptr;
 		int counter = 0;
 		do
 		{
-			position = &family.spawnPositionList[GetRandomNumber(0, family.spawnPositionList.size())];
+			position = &family.spawnPositionList[GetRandomNumber(0, family.spawnPositionList.size() - 1)];
+
+			if (!position->despawnTime)
+			{
+				position->despawnTime = Hk::Time::GetUnixSeconds();
+			}
+
+			// TODO: Check this works as you think it does under the hood
+
 			if (counter++ > 30)
 			{
 				Console::ConErr(std::format("Unable to find a valid spawn position for {}. Please check your config has an appropriate number of spawn "
@@ -195,9 +205,6 @@ namespace Plugins::Triggers
 				return;
 			}
 		} while (position->despawnTime == 0);
-
-		// Set the Despawn Time
-		position->despawnTime = Hk::Time::GetUnixSeconds();
 
 		std::wstring rewardSectorMessage = Hk::Math::VectorToSectorCoord<std::wstring>(
 		    CreateID(position->system.c_str()), Vector {position->coordinates[0], position->coordinates[1], position->coordinates[2]});
@@ -213,73 +220,98 @@ namespace Plugins::Triggers
 
 		// TODO: Gotta print the messages here for the hacking client and the system with appropriate info
 		// TODO: std::vformat for args passed into the description
-		PrintUserCmdText(client, event.descriptionMedInfo);
+		PrintUserCmdText(
+		    group.activeClient, std::vformat(event.descriptionMedInfo, std::make_wformat_args(rewardSectorMessage, (event.lifetimeInSeconds / 60))));
+
 		// TODO: std::format for global->config->messageHackFinishNotifyAll to feed in positional data, faction and client.
 	}
 
-	bool HandleDisconnect(uint client)
+	bool HandleDisconnect(RuntimeTerminalGroup& group)
 	{
 		// Checks if the player has a ship before proceeding. This handles disconnects, crashing and docking.
-		if (Hk::Player::GetShip(client).has_value())
+		if (Hk::Player::GetShip(group.activeClient).has_value())
 		{
 			return false;
 		}
 
 		// Notify the player, play an audio cue, turn off the fuse and reset the timer, failing the objective.
-		PrintUserCmdText(client, L"You have left the area, the hack has failed.");
-		Hk::Client::PlaySoundEffect(client, CreateID("ui_select_remove"));
-		pub::SpaceObj::SetRelativeHealth(global->runtimeGroups[client].currentTerminal, 1.f);
-		global->runtimeGroups[client].activeClient = 0;
+		PrintUserCmdText(group.activeClient, L"You have left the area, the hack has failed.");
+		Hk::Client::PlaySoundEffect(group.activeClient, CreateID("ui_select_remove"));
+		pub::SpaceObj::SetRelativeHealth(group.currentTerminal, 1.f);
+		group.activeClient = 0;
 
 		return true;
 	}
 
-	bool HandleOutOfRange(uint client)
+	bool HandleOutOfRange(RuntimeTerminalGroup& group)
 	{
-		if (ClientIsInRangeOfSolar(client, global->runtimeGroups[client].currentTerminal, global->config->terminalSustainRadiusInMeters))
+		if (ClientIsInRangeOfSolar(group.activeClient, group.currentTerminal, global->config->terminalSustainRadiusInMeters))
 		{
 			return false;
 		}
 
 		// Set the target's relative Health to half, triggering the effect fuse
-		pub::SpaceObj::SetRelativeHealth(global->runtimeGroups[client].currentTerminal, 0.4f);
+		pub::SpaceObj::SetRelativeHealth(group.currentTerminal, 0.4f);
 
-		if (global->runtimeGroups[client].playerHasBeenWarned)
+		if (group.playerHasBeenWarned)
 		{
 			// Notify the player, play an audio cue, turn off the fuses, reset the timer and the warning flag, failing the objective.
-			PrintUserCmdText(client, L"You're out of range, the hack has failed.");
-			Hk::Client::PlaySoundEffect(client, CreateID("ui_select_remove"));
-			UnLightShipFuse(client, global->config->shipActiveTerminalFuse);
-			pub::SpaceObj::SetRelativeHealth(global->runtimeGroups[client].currentTerminal, 1.f);
-			global->runtimeGroups[client].activeClient = 0;
-			global->runtimeGroups[client].playerHasBeenWarned = false;
+			PrintUserCmdText(group.activeClient, L"You're out of range, the hack has failed.");
+			Hk::Client::PlaySoundEffect(group.activeClient, CreateID("ui_select_remove"));
+			UnLightShipFuse(group.activeClient, global->config->shipActiveTerminalFuse);
+			pub::SpaceObj::SetRelativeHealth(group.currentTerminal, 1.f);
+			group.activeClient = 0;
+			group.playerHasBeenWarned = false;
 			return true;
 		}
 
 		// Warn the player they're out of range for a cycle and set the beenWarned variable.
-		PrintUserCmdText(client, L"Warning, you are moving out of range, the hack will fail if you don't get closer.");
+		PrintUserCmdText(group.activeClient, L"Warning, you are moving out of range, the hack will fail if you don't get closer.");
 
 		// Play a sound effect for the player to telegraph that they're leaving the area.
-		Hk::Client::PlaySoundEffect(client, CreateID("ui_filter_operation"));
-		pub::SpaceObj::SetRelativeHealth(global->runtimeGroups[client].currentTerminal, 0.4f);
+		Hk::Client::PlaySoundEffect(group.activeClient, CreateID("ui_filter_operation"));
+		pub::SpaceObj::SetRelativeHealth(group.currentTerminal, 0.4f);
 
-		global->runtimeGroups[client].playerHasBeenWarned = true;
+		group.playerHasBeenWarned = true;
 		return true;
 	}
 
-	void ProcessActiveTerminal(const uint client)
+	void ProcessActiveTerminal(RuntimeTerminalGroup& group)
 	{
-		if (global->runtimeGroups[client].activeClient)
+		if (!group.activeClient)
 		{
+			// If there's no active client, simply don't proceed
+			return;
+		}
+
+		if (HandleDisconnect(group))
+		{
+			// All we need to do here is return, as everything is handled in the function.
+			return;
+		}
+
+		if (HandleOutOfRange(group))
+		{
+			// All we need to do here is return, as everything is handled in the function.
+			return;
+		}
+
+		if (Hk::Time::GetUnixSeconds() >=
+		    group.lastActivatedTime + (group.currentTerminalIsLawful ? group.data->useTimeInSeconds : group.data->hackTimeInSeconds))
+		{
+			CompleteTerminalInteraction(group);
+			pub::SpaceObj::SetRelativeHealth(group.currentTerminal, 1.f);
+			group.activeClient = 0;
+			return;
 		}
 	}
 
 	void TerminalInteractionTimer()
 	{
 		// Loops over the active terminals every 5 seconds and processes them.
-		for (auto client = 0u; client != global->runtimeGroups.size(); client++)
+		for (auto& group : global->runtimeGroups)
 		{
-			ProcessActiveTerminal(client);
+			ProcessActiveTerminal(group);
 		}
 	}
 
@@ -374,6 +406,7 @@ namespace Plugins::Triggers
 
 		// Check if the subcommand is valid
 		auto isLawful = action == L"use";
+		global->runtimeGroups[client].currentTerminalIsLawful = isLawful;
 		if (!isLawful && action != L"hack")
 		{
 			PrintUserCmdText(client, L"Invalid terminal command, valid options are 'hack', 'use' and 'configure'.");
@@ -555,7 +588,7 @@ namespace Plugins::Triggers
 		pub::SpaceObj::SetRelativeHealth(target, 0.5f);
 
 		// Assign the terminal target to the global vector
-		global->runtimeGroups[client].currentTerminal = target;
+		group->currentTerminal = target;
 		return;
 	}
 

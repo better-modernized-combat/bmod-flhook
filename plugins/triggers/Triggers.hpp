@@ -33,9 +33,9 @@ namespace Plugins::Triggers
 		std::string name = "Test Event";
 		std::map<std::wstring, int> npcs;
 		int spawnWeight = 1;
-		std::wstring descriptionLowInfo = L"This is a placeholder low information description for the event that has been triggered.";
-		std::wstring descriptionMedInfo = L"This is a placeholder medium information description for the event that has been triggered.";
-		std::wstring descriptionHighInfo = L"This is a placeholder high information description for the event that has been triggered.";
+		std::wstring descriptionLowInfo = L"A point of interest has been revealed in sector {0}.";
+		std::wstring descriptionMedInfo = L"A point of interest has been revealed in sector {0}. Time Window: {1} Minutes";
+		std::wstring descriptionHighInfo = L"A point of interest has been revealed in sector {0} ({2:.0f}, {3:.0f}, {4:.0f}). Time Window: {1} Minutes";
 		int lifetimeInSeconds = 1200;
 	};
 
@@ -81,6 +81,7 @@ namespace Plugins::Triggers
 		std::vector<uint> terminalList;
 		uint lastActivatedTime = 0;
 		uint currentTerminal = 0;
+		bool currentTerminalIsLawful;
 
 		bool playerHasBeenWarned = false;
 	};
