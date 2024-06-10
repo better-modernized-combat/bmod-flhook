@@ -163,11 +163,30 @@ namespace Plugins::Triggers
 	/** @ingroup Triggers
 	 * @brief Completes a terminal interaction, rewards the player and spawns a random event selected from the appropriate pool
 	 */
-	// void CompleteTerminalInteraction(TerminalGroup& terminalGroup, uint client, bool isLawful)
-
 	void CompleteTerminalInteraction(RuntimeTerminalGroup& group)
 	{
 		auto& eventFamililyList = group.currentTerminalIsLawful ? group.data->eventFamilyUseList : group.data->eventFamilyHackList;
+
+		if (group.currentTerminalIsLawful && group.data->useCostInCredits > Hk::Player::GetCash(group.activeClient).value())
+		{
+			PrintUserCmdText(group.activeClient, L"You no longer have enough credits to complete this transaction. Data retrieval has been cancelled.");
+			// TODO: reset cooldown
+			return;
+		}
+		if (group.currentTerminalIsLawful)
+		{
+			PrintUserCmdText(group.activeClient, std::format(L"Your account has been charged {} credits.", group.data->useCostInCredits));
+			Hk::Player::AdjustCash(group.activeClient, -static_cast<int>(group.data->useCostInCredits));
+			Hk::Client::PlaySoundEffect(group.activeClient, CreateID("ui_execute_transaction"));
+		}
+		else
+		{
+			auto randomCash = GetRandomNumber(group.data->minHackRewardInCredits, group.data->maxHackRewardInCredits);
+			Hk::Player::AddCash(group.activeClient, randomCash);
+
+			PrintUserCmdText(group.activeClient, std::format(L"{} credits diverted from local financial ansibles", randomCash));
+			Hk::Client::PlaySoundEffect(group.activeClient, CreateID("ui_receive_money"));
+		}
 
 		std::vector<int> familyWeights;
 		for (const auto& eventFamily : eventFamililyList)
@@ -218,12 +237,9 @@ namespace Plugins::Triggers
 
 		CreatePoiEvent(event, *position);
 
-		// TODO: Gotta print the messages here for the hacking client and the system with appropriate info
-		// TODO: std::vformat for args passed into the description
 		PrintUserCmdText(
 		    group.activeClient, std::vformat(event.descriptionMedInfo, std::make_wformat_args(rewardSectorMessage, (event.lifetimeInSeconds / 60))));
-
-		// TODO: std::format for global->config->messageHackFinishNotifyAll to feed in positional data, faction and client.
+		Hk::Client::PlaySoundEffect(group.activeClient, CreateID("ui_end_scan"));
 	}
 
 	bool HandleDisconnect(RuntimeTerminalGroup& group)
@@ -239,7 +255,7 @@ namespace Plugins::Triggers
 		Hk::Client::PlaySoundEffect(group.activeClient, CreateID("ui_select_remove"));
 		pub::SpaceObj::SetRelativeHealth(group.currentTerminal, 1.f);
 		group.activeClient = 0;
-
+		// TODO: reset cooldown
 		return true;
 	}
 
@@ -262,6 +278,7 @@ namespace Plugins::Triggers
 			pub::SpaceObj::SetRelativeHealth(group.currentTerminal, 1.f);
 			group.activeClient = 0;
 			group.playerHasBeenWarned = false;
+			// TODO: reset cooldown
 			return true;
 		}
 
@@ -444,14 +461,28 @@ namespace Plugins::Triggers
 
 		if (!group)
 		{
+			// TODO: Better message here
 			PrintUserCmdText(client, L"The target you have selected is not currently active, please select a valid target.");
 			return;
 		}
 
+		// TODO: Check places where lastActivatedTime is set and ensure this is accurate. Also test the if/else statement
 		// Check for cooldown
 		if ((Hk::Time::GetUnixSeconds() <= group->lastActivatedTime + group->data->cooldownTimeInSeconds))
 		{
-			PrintUserCmdText(client, L"The target you have selected is currently on cooldown, please try again later.");
+			if (auto remainingTime = (group->lastActivatedTime + group->data->cooldownTimeInSeconds) - Hk::Time::GetUnixSeconds(); remainingTime <= 60)
+			{
+				PrintUserCmdText(client,
+				    std::vformat(L"The target you have selected is currently on cooldown. This {0} will be available again in less than 1 minute.",
+				        std::make_wformat_args(stows(group->data->terminalName))));
+			}
+			else
+			{
+				PrintUserCmdText(client,
+				    std::vformat(L"The target you have selected is currently on cooldown. This {0} will be available again in {1} minutes.",
+				        std::make_wformat_args(stows(group->data->terminalName), remainingTime / 60)));
+			}
+
 			return;
 		}
 
@@ -461,8 +492,6 @@ namespace Plugins::Triggers
 			PrintUserCmdText(client, L"The target you have selected is already in use, please try again later.");
 			return;
 		}
-
-		Hk::Client::PlaySoundEffect(client, CreateID("ui_begin_scan"));
 
 		Vector clientPos;
 		Matrix clientRot;
@@ -567,7 +596,9 @@ namespace Plugins::Triggers
 
 				if (Hk::Player::GetCash(client).value() < group->data->useCostInCredits)
 				{
-					PrintUserCmdText(client, L"You don't have enough credits to use this terminal.");
+					PrintUserCmdText(client,
+					    std::format(L"You don't have enough credits to use this terminal. You need a total of {} in your account to proceed.",
+					        group->data->useCostInCredits));
 					return;
 				}
 			}
