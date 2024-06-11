@@ -24,7 +24,7 @@ namespace Plugins::Triggers
 	struct SpawnedObject
 	{
 		uint spaceId = 0;
-		uint spawnTime = 0;
+		uint despawnTime = 0;
 	};
 
 	struct Event final : Reflectable
@@ -71,7 +71,6 @@ namespace Plugins::Triggers
 
 		// Possible NPCs that can spawn for this terminal if a hack attempt rolls hostile.
 		std::vector<std::wstring> hostileHackNpcs;
-		std::vector<SpawnedObject> activeHostileHackNpcs;
 	};
 
 	struct RuntimeTerminalGroup
@@ -96,6 +95,7 @@ namespace Plugins::Triggers
 		float terminalInitiateRadiusInMeters = 750;
 		float terminalSustainRadiusInMeters = 2000;
 		float terminalNotifyAllRadiusInMeters = 100000;
+		int hackNpcLifetimeInSeconds = 600;
 		std::wstring messageHackStartNotifyAll = L"A {0} is being hacked by {1} in sector {2}!";
 		std::wstring messageHackFinishNotifyAll = L"{0} has completed their hack of the {1} in sector {2} and retrieved sensitive data from the {3}!";
 
@@ -114,5 +114,6 @@ namespace Plugins::Triggers
 		bool pluginActive = true;
 		std::map<CAccount*, PlayerConfig> playerConfigs;
 		std::vector<RuntimeTerminalGroup> runtimeGroups;
+		std::vector<SpawnedObject> spawnedObjects;
 	};
 } // namespace Plugins::Triggers

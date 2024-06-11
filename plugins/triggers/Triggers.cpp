@@ -25,10 +25,6 @@
 
 #include <random>
 
-// TODO: Settings validation
-// TODO: Spawning system
-// TODO: Cooldown timers and hacking checks
-
 namespace Plugins::Triggers
 {
 	const auto global = std::make_unique<Global>();
@@ -150,15 +146,23 @@ namespace Plugins::Triggers
 		Vector pos = {position.coordinates[0], position.coordinates[1], position.coordinates[2]};
 		Matrix mat = EulerMatrix({0.f, 0.f, 0.f});
 
-		global->solarCommunicator->CreateSolarFormation(event.solarFormation, pos, CreateID(position.system.c_str()));
+		for (const auto& object : global->solarCommunicator->CreateSolarFormation(event.solarFormation, pos, CreateID(position.system.c_str())))
+		{
+			SpawnedObject spawnedObject;
+			spawnedObject.spaceId = object;
+			spawnedObject.despawnTime = Hk::Time::GetUnixSeconds() + event.lifetimeInSeconds;
+		}
 
 		for (const auto& npcs : event.npcs)
 		{
-			global->npcCommunicator->CreateNpc(npcs.first, pos, mat, CreateID(position.system.c_str()), true);
+			// Spawn the NPC, calculcate it's despawn time, and emplace the information back into the global tracking vector.
+			SpawnedObject spawnedObject;
+			spawnedObject.spaceId = global->npcCommunicator->CreateNpc(npcs.first, pos, mat, CreateID(position.system.c_str()), true);
+			spawnedObject.despawnTime = Hk::Time::GetUnixSeconds() + event.lifetimeInSeconds;
+
+			global->spawnedObjects.emplace_back(spawnedObject);
 		}
 	}
-
-	// TODO: Maybe see if you can move the weight selection into the GetRandomWeights function fully and do the loop in there
 
 	/** @ingroup Triggers
 	 * @brief Completes a terminal interaction, rewards the player and spawns a random event selected from the appropriate pool
@@ -170,13 +174,14 @@ namespace Plugins::Triggers
 		if (group.currentTerminalIsLawful && group.data->useCostInCredits > Hk::Player::GetCash(group.activeClient).value())
 		{
 			PrintUserCmdText(group.activeClient, L"You no longer have enough credits to complete this transaction. Data retrieval has been cancelled.");
-			// TODO: reset cooldown
+			group.lastActivatedTime = 0;
+			group.activeClient = 0;
 			return;
 		}
 		if (group.currentTerminalIsLawful)
 		{
 			PrintUserCmdText(group.activeClient, std::format(L"Your account has been charged {} credits.", group.data->useCostInCredits));
-			Hk::Player::AdjustCash(group.activeClient, -static_cast<int>(group.data->useCostInCredits));
+			Hk::Player::AdjustCash(group.activeClient, -group.data->useCostInCredits);
 			Hk::Client::PlaySoundEffect(group.activeClient, CreateID("ui_execute_transaction"));
 		}
 		else
@@ -213,8 +218,6 @@ namespace Plugins::Triggers
 			{
 				position->despawnTime = Hk::Time::GetUnixSeconds();
 			}
-
-			// TODO: Check this works as you think it does under the hood
 
 			if (counter++ > 30)
 			{
@@ -255,7 +258,7 @@ namespace Plugins::Triggers
 		Hk::Client::PlaySoundEffect(group.activeClient, CreateID("ui_select_remove"));
 		pub::SpaceObj::SetRelativeHealth(group.currentTerminal, 1.f);
 		group.activeClient = 0;
-		// TODO: reset cooldown
+		group.lastActivatedTime = 0;
 		return true;
 	}
 
@@ -277,8 +280,8 @@ namespace Plugins::Triggers
 			UnLightShipFuse(group.activeClient, global->config->shipActiveTerminalFuse);
 			pub::SpaceObj::SetRelativeHealth(group.currentTerminal, 1.f);
 			group.activeClient = 0;
+			group.lastActivatedTime = 0;
 			group.playerHasBeenWarned = false;
-			// TODO: reset cooldown
 			return true;
 		}
 
@@ -319,6 +322,7 @@ namespace Plugins::Triggers
 			CompleteTerminalInteraction(group);
 			pub::SpaceObj::SetRelativeHealth(group.currentTerminal, 1.f);
 			group.activeClient = 0;
+			group.lastActivatedTime = Hk::Time::GetUnixSeconds();
 			return;
 		}
 	}
@@ -329,6 +333,22 @@ namespace Plugins::Triggers
 		for (auto& group : global->runtimeGroups)
 		{
 			ProcessActiveTerminal(group);
+		}
+	}
+
+	void CleanupTimer()
+	{
+		auto currentTime = Hk::Time::GetUnixSeconds();
+
+		for (auto object = global->spawnedObjects.begin(); object != global->spawnedObjects.end();)
+		{
+			if (currentTime > object->despawnTime)
+			{
+				pub::SpaceObj::Destroy(object->spaceId, VANISH);
+				global->spawnedObjects.erase(object);
+			}
+
+			++object;
 		}
 	}
 
@@ -461,28 +481,7 @@ namespace Plugins::Triggers
 
 		if (!group)
 		{
-			// TODO: Better message here
-			PrintUserCmdText(client, L"The target you have selected is not currently active, please select a valid target.");
-			return;
-		}
-
-		// TODO: Check places where lastActivatedTime is set and ensure this is accurate. Also test the if/else statement
-		// Check for cooldown
-		if ((Hk::Time::GetUnixSeconds() <= group->lastActivatedTime + group->data->cooldownTimeInSeconds))
-		{
-			if (auto remainingTime = (group->lastActivatedTime + group->data->cooldownTimeInSeconds) - Hk::Time::GetUnixSeconds(); remainingTime <= 60)
-			{
-				PrintUserCmdText(client,
-				    std::vformat(L"The target you have selected is currently on cooldown. This {0} will be available again in less than 1 minute.",
-				        std::make_wformat_args(stows(group->data->terminalName))));
-			}
-			else
-			{
-				PrintUserCmdText(client,
-				    std::vformat(L"The target you have selected is currently on cooldown. This {0} will be available again in {1} minutes.",
-				        std::make_wformat_args(stows(group->data->terminalName), remainingTime / 60)));
-			}
-
+			PrintUserCmdText(client, L"The target you have selected is not a valid target for terminal interaction.");
 			return;
 		}
 
@@ -490,6 +489,26 @@ namespace Plugins::Triggers
 		if (group->activeClient)
 		{
 			PrintUserCmdText(client, L"The target you have selected is already in use, please try again later.");
+			return;
+		}
+
+		// Check for cooldown
+		if ((Hk::Time::GetUnixSeconds() <= group->lastActivatedTime + group->data->cooldownTimeInSeconds))
+		{
+			if (auto remainingTime = (group->lastActivatedTime + group->data->cooldownTimeInSeconds) - Hk::Time::GetUnixSeconds(); remainingTime <= 60)
+			{
+				PrintUserCmdText(client,
+				    std::format(L"The target you have selected is currently on cooldown. This {} will be available again in less than 1 minute.",
+				        stows(group->data->terminalName)));
+			}
+			else
+			{
+				PrintUserCmdText(client,
+				    std::format(L"The target you have selected is currently on cooldown. This {} will be available again in {} minutes.",
+				        stows(group->data->terminalName),
+				        remainingTime / 60));
+			}
+
 			return;
 		}
 
@@ -514,7 +533,6 @@ namespace Plugins::Triggers
 		int playerReputation;
 		pub::Player::GetRep(client, playerReputation);
 
-		// TODO: Make the player setting preferences disable the prompts here where appropriate
 		// If the hack is unlawful, roll to see if there's a rep hit and hostile spawn.
 		if (!isLawful)
 		{
@@ -543,6 +561,7 @@ namespace Plugins::Triggers
 					    clientPos.x + GetRandomNumber(-2000, 2000), clientPos.y + GetRandomNumber(-2000, 2000), clientPos.z + GetRandomNumber(-2000, 2000)};
 
 					// Spawns an NPC from the group's possible pool and adds it to the list for this terminalGroup's live NPCs.
+					// TODO: Rejig this?
 					SpawnedObject npcObject;
 					npcObject.spaceId =
 					    global->npcCommunicator->CreateNpc(group->data->hostileHackNpcs[GetRandomNumber(0, group->data->hostileHackNpcs.size())],
@@ -550,9 +569,9 @@ namespace Plugins::Triggers
 					        EulerMatrix({0.f, 0.f, 0.f}),
 					        clientSystem,
 					        true);
-					npcObject.spawnTime = Hk::Time::GetUnixSeconds();
-					// This might be function scope only, you may need to pass this out with terminalInfo
-					group->data->activeHostileHackNpcs.emplace_back(npcObject);
+
+					npcObject.despawnTime = Hk::Time::GetUnixSeconds() + global->config->hackNpcLifetimeInSeconds;
+					global->spawnedObjects.emplace_back(npcObject);
 				}
 
 				// Temporarily set the faction hostile to the player.
@@ -609,10 +628,9 @@ namespace Plugins::Triggers
 		        (global->config->terminalSustainRadiusInMeters),
 		        isLawful ? group->data->useTimeInSeconds : group->data->hackTimeInSeconds));
 
-		// Timer use a ternary to determine which value
+		// Timer uses a ternary to determine which value
 
 		group->activeClient = client;
-		// TODO: This probably needs to be set in the complete instead
 		group->lastActivatedTime = Hk::Time::GetUnixSeconds();
 		Hk::Client::PlaySoundEffect(client, CreateID("ui_new_story_star"));
 		LightShipFuse(client, global->config->shipActiveTerminalFuse);
@@ -646,7 +664,7 @@ REFL_AUTO(type(Config), field(terminalGroups), field(terminalInitiateRadiusInMet
 
 DefaultDllMainSettings(LoadSettings);
 
-const std::vector<Timer> timers = {{TerminalInteractionTimer, 5}};
+const std::vector<Timer> timers = {{TerminalInteractionTimer, 5}, {CleanupTimer, 60}};
 extern "C" EXPORT void ExportPluginInfo(PluginInfo* pi)
 {
 	pi->name("Triggers");
