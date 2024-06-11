@@ -660,7 +660,7 @@ REFL_AUTO(type(TerminalGroup), field(terminalGroupName), field(terminalName), fi
     field(maxHackRewardInCredits), field(terminalList), field(eventFamilyUseList), field(eventFamilyHackList), field(hackRepReduction), field(hostileHackNpcs));
 REFL_AUTO(type(Config), field(terminalGroups), field(terminalInitiateRadiusInMeters), field(terminalSustainRadiusInMeters),
     field(terminalNotifyAllRadiusInMeters), field(messageHackStartNotifyAll), field(messageHackFinishNotifyAll), field(factionNpcSpawnList),
-    field(terminalHealthAdjustmentForStatus), field(shipActiveTerminalFuse));
+    field(terminalHealthAdjustmentForStatus), field(shipActiveTerminalFuse), field(hackNpcLifetimeInSeconds));
 
 DefaultDllMainSettings(LoadSettings);
 
