@@ -151,6 +151,7 @@ namespace Plugins::Triggers
 			SpawnedObject spawnedObject;
 			spawnedObject.spaceId = object;
 			spawnedObject.despawnTime = Hk::Time::GetUnixSeconds() + event.lifetimeInSeconds;
+			global->spawnedObjects.emplace_back(spawnedObject);
 		}
 
 		for (const auto& npcs : event.npcs)
@@ -347,8 +348,10 @@ namespace Plugins::Triggers
 				pub::SpaceObj::Destroy(object->spaceId, VANISH);
 				global->spawnedObjects.erase(object);
 			}
-
-			++object;
+			else
+			{
+				++object;
+			}
 		}
 	}
 
