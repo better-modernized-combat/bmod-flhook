@@ -140,7 +140,6 @@ namespace Plugins::Triggers
 	/** @ingroup Triggers
 	 * @brief Creates a point of interest and it's accompanying NPCs if there are any defined.
 	 */
-	// Not called CreateEvent because Windows is awful
 	void CreatePoiEvent(const Event& event, const Position& position)
 	{
 		Vector pos = {position.coordinates[0], position.coordinates[1], position.coordinates[2]};
@@ -170,7 +169,7 @@ namespace Plugins::Triggers
 	 */
 	void CompleteTerminalInteraction(RuntimeTerminalGroup& group)
 	{
-		auto& eventFamililyList = group.currentTerminalIsLawful ? group.data->eventFamilyUseList : group.data->eventFamilyHackList;
+		auto& eventFamilyList = group.currentTerminalIsLawful ? group.data->eventFamilyUseList : group.data->eventFamilyHackList;
 
 		if (group.currentTerminalIsLawful && group.data->useCostInCredits > Hk::Player::GetCash(group.activeClient).value())
 		{
@@ -195,14 +194,14 @@ namespace Plugins::Triggers
 		}
 
 		std::vector<int> familyWeights;
-		for (const auto& eventFamily : eventFamililyList)
+		for (const auto& eventFamily : eventFamilyList)
 		{
 			familyWeights.emplace_back(eventFamily.spawnWeight);
 		}
-		auto& family = eventFamililyList[GetRandomWeight(familyWeights)];
+		auto& family = eventFamilyList[GetRandomWeight(familyWeights)];
 
 		std::vector<int> eventWeights;
-		for (const auto& event : eventFamililyList[GetRandomWeight(familyWeights)].eventList)
+		for (const auto& event : eventFamilyList[GetRandomWeight(familyWeights)].eventList)
 		{
 			eventWeights.emplace_back(event.spawnWeight);
 		}
@@ -244,6 +243,22 @@ namespace Plugins::Triggers
 		PrintUserCmdText(
 		    group.activeClient, std::vformat(event.descriptionMedInfo, std::make_wformat_args(rewardSectorMessage, (event.lifetimeInSeconds / 60))));
 		Hk::Client::PlaySoundEffect(group.activeClient, CreateID("ui_end_scan"));
+
+		//// TODO: ID
+		////  Fetch the terminal's reputation and affiliation values
+		// int terminalReputation;
+		// pub::SpaceObj::GetRep(group.currentTerminal, terminalReputation);
+		// uint terminalAffiliation;
+		// pub::Reputation::GetAffiliation(terminalReputation, terminalAffiliation);
+
+		//// Get the IDS Name for the faction We use this in several messages.
+		// uint npcFactionShortIds;
+		// pub::Reputation::GetShortGroupName(terminalAffiliation, npcFactionShortIds);
+
+		// auto a = std::to_wstring(group.currentTerminal).substr(0, 4);
+		// auto b = std::to_wstring(Hk::Time::GetUnixSeconds()).substr();
+
+		// auto traceId = std::vformat(L"{0}-{1}{2}", std::make_wformat_args(Hk::Message::GetWStringFromIdS(npcFactionShortIds)));
 	}
 
 	bool HandleDisconnect(RuntimeTerminalGroup& group)
@@ -346,7 +361,7 @@ namespace Plugins::Triggers
 			if (currentTime > object->despawnTime)
 			{
 				pub::SpaceObj::Destroy(object->spaceId, VANISH);
-				global->spawnedObjects.erase(object);
+				object = global->spawnedObjects.erase(object);
 			}
 			else
 			{
@@ -462,7 +477,7 @@ namespace Plugins::Triggers
 
 		RuntimeTerminalGroup* group = nullptr;
 
-		//  Check if this solar is on the list of availlable terminals
+		//  Check if this solar is on the list of available terminals
 		for (auto& terminalGroup : global->runtimeGroups)
 		{
 			auto found = false;
@@ -495,14 +510,26 @@ namespace Plugins::Triggers
 			return;
 		}
 
+		// There's probably a more elegant way to handle this message
 		// Check for cooldown
-		if ((Hk::Time::GetUnixSeconds() <= group->lastActivatedTime + group->data->cooldownTimeInSeconds))
+		if (Hk::Time::GetUnixSeconds() <= group->lastActivatedTime + group->data->cooldownTimeInSeconds)
 		{
-			if (auto remainingTime = (group->lastActivatedTime + group->data->cooldownTimeInSeconds) - Hk::Time::GetUnixSeconds(); remainingTime <= 60)
+			if (auto remainingTime = (group->lastActivatedTime + group->data->cooldownTimeInSeconds) - Hk::Time::GetUnixSeconds(); remainingTime < 60)
 			{
 				PrintUserCmdText(client,
 				    std::format(L"The target you have selected is currently on cooldown. This {} will be available again in less than 1 minute.",
 				        stows(group->data->terminalName)));
+				return;
+			}
+
+			if (auto remainingTime = (group->lastActivatedTime + group->data->cooldownTimeInSeconds) - Hk::Time::GetUnixSeconds();
+			    (remainingTime - 60) <= (120 - 60))
+
+			{
+				PrintUserCmdText(client,
+				    std::format(L"The target you have selected is currently on cooldown. This {} will be available again in 1 minute.",
+				        stows(group->data->terminalName)));
+				return;
 			}
 			else
 			{
@@ -510,9 +537,8 @@ namespace Plugins::Triggers
 				    std::format(L"The target you have selected is currently on cooldown. This {} will be available again in {} minutes.",
 				        stows(group->data->terminalName),
 				        remainingTime / 60));
+				return;
 			}
-
-			return;
 		}
 
 		Vector clientPos;
@@ -660,7 +686,8 @@ REFL_AUTO(type(Event), field(name), field(solarFormation), field(npcs), field(sp
 REFL_AUTO(type(EventFamily), field(name), field(spawnWeight), field(eventList), field(spawnPositionList));
 REFL_AUTO(type(TerminalGroup), field(terminalGroupName), field(terminalName), field(cooldownTimeInSeconds), field(useTimeInSeconds), field(hackTimeInSeconds),
     field(hackHostileChance), field(minHostileHackHostileNpcs), field(maxHostileHackHostileNpcs), field(useCostInCredits), field(minHackRewardInCredits),
-    field(maxHackRewardInCredits), field(terminalList), field(eventFamilyUseList), field(eventFamilyHackList), field(hackRepReduction), field(hostileHackNpcs));
+    field(maxHackRewardInCredits), field(terminalList), field(eventFamilyUseList), field(eventFamilyHackList), field(hackRepReduction), field(hostileHackNpcs),
+    field(traceMessage));
 REFL_AUTO(type(Config), field(terminalGroups), field(terminalInitiateRadiusInMeters), field(terminalSustainRadiusInMeters),
     field(terminalNotifyAllRadiusInMeters), field(messageHackStartNotifyAll), field(messageHackFinishNotifyAll), field(factionNpcSpawnList),
     field(terminalHealthAdjustmentForStatus), field(shipActiveTerminalFuse), field(hackNpcLifetimeInSeconds));

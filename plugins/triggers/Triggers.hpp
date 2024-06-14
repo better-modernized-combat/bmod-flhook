@@ -71,7 +71,7 @@ namespace Plugins::Triggers
 
 		// Possible NPCs that can spawn for this terminal if a hack attempt rolls hostile.
 		std::vector<std::wstring> hostileHackNpcs;
-		std::string shadowMessage = "{} downloaded data from this {} at {}. A trace indicates that they were provided with coordinates in {}, {}.";
+		std::string traceMessage = "{} downloaded data from this {} at {}. A trace indicates that they were provided with coordinates in {}, {}.";
 	};
 
 	struct RuntimeTerminalGroup
