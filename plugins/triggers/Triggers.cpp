@@ -201,7 +201,7 @@ namespace Plugins::Triggers
 		auto& family = eventFamilyList[GetRandomWeight(familyWeights)];
 
 		std::vector<int> eventWeights;
-		for (const auto& event : eventFamilyList[GetRandomWeight(familyWeights)].eventList)
+		for (const auto& event : family.eventList)
 		{
 			eventWeights.emplace_back(event.spawnWeight);
 		}
