@@ -116,5 +116,6 @@ namespace Plugins::Triggers
 		std::map<CAccount*, PlayerConfig> playerConfigs;
 		std::vector<RuntimeTerminalGroup> runtimeGroups;
 		std::vector<SpawnedObject> spawnedObjects;
+		std::mt19937 randomEngine;
 	};
 } // namespace Plugins::Triggers

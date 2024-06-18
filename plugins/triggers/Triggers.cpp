@@ -31,17 +31,14 @@ namespace Plugins::Triggers
 
 	int GetRandomNumber(int min, int max)
 	{
-		static std::random_device dev;
-		static auto engine = std::mt19937(dev());
 		auto range = std::uniform_int_distribution(min, max);
-		return range(engine);
+		return range(global->randomEngine);
 	}
 
 	int GetRandomWeight(const std::vector<int>& weights)
 	{
 		std::discrete_distribution<> dist(weights.begin(), weights.end());
-		static std::mt19937 engine;
-		auto weightIndex = dist(engine);
+		auto weightIndex = dist(global->randomEngine);
 		return weightIndex;
 	}
 
@@ -94,6 +91,9 @@ namespace Plugins::Triggers
 
 	void LoadSettings()
 	{
+		std::random_device dev;
+		global->randomEngine = std::mt19937 {dev()};
+
 		// Load JSON config
 		auto config = Serializer::JsonToObject<Config>();
 		global->config = std::make_unique<Config>(std::move(config));
