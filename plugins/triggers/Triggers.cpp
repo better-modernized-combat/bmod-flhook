@@ -29,20 +29,20 @@ namespace Plugins::Triggers
 {
 	const auto global = std::make_unique<Global>();
 
-	int GetRandomNumber(int min, int max)
+	static int GetRandomNumber(int min, int max)
 	{
 		auto range = std::uniform_int_distribution(min, max);
 		return range(global->randomEngine);
 	}
 
-	int GetRandomWeight(const std::vector<int>& weights)
+	static int GetRandomWeight(const std::vector<int>& weights)
 	{
 		std::discrete_distribution<> dist(weights.begin(), weights.end());
 		auto weightIndex = dist(global->randomEngine);
 		return weightIndex;
 	}
 
-	void LightShipFuse(uint client, const std::string& fuse)
+	static void LightShipFuse(uint client, const std::string& fuse)
 	{
 		auto playerShip = Hk::Player::GetShip(client).value();
 		IObjInspectImpl* inspect;
@@ -52,7 +52,7 @@ namespace Plugins::Triggers
 		Hk::Admin::LightFuse((IObjRW*)inspect, CreateID(fuse.c_str()), 0.f, 5.f, 0);
 	}
 
-	void UnLightShipFuse(uint client, const std::string& fuse)
+	static void UnLightShipFuse(uint client, const std::string& fuse)
 	{
 		auto playerShip = Hk::Player::GetShip(client).value();
 		IObjInspectImpl* inspect;
@@ -62,7 +62,7 @@ namespace Plugins::Triggers
 		Hk::Admin::UnLightFuse((IObjRW*)inspect, CreateID(fuse.c_str()));
 	}
 
-	bool ClientIsInRangeOfSolar(ClientId client, uint solar, float distance)
+	static bool ClientIsInRangeOfSolar(ClientId client, uint solar, float distance)
 	{
 		// Get the Player position
 		auto playerPos = Hk::Solar::GetLocation(client, IdType::Client);
@@ -89,7 +89,7 @@ namespace Plugins::Triggers
 		return true;
 	}
 
-	void LoadSettings()
+	static void LoadSettings()
 	{
 		std::random_device dev;
 		global->randomEngine = std::mt19937 {dev()};
@@ -140,7 +140,7 @@ namespace Plugins::Triggers
 	/** @ingroup Triggers
 	 * @brief Creates a point of interest and it's accompanying NPCs if there are any defined.
 	 */
-	void CreatePoiEvent(const Event& event, const Position& position)
+	static void CreatePoiEvent(const Event& event, const Position& position)
 	{
 		Vector pos = {position.coordinates[0], position.coordinates[1], position.coordinates[2]};
 		Matrix mat = EulerMatrix({0.f, 0.f, 0.f});
@@ -167,7 +167,7 @@ namespace Plugins::Triggers
 	/** @ingroup Triggers
 	 * @brief Completes a terminal interaction, rewards the player and spawns a random event selected from the appropriate pool
 	 */
-	void CompleteTerminalInteraction(RuntimeTerminalGroup& group)
+	static void CompleteTerminalInteraction(RuntimeTerminalGroup& group)
 	{
 		auto& eventFamilyList = group.currentTerminalIsLawful ? group.data->eventFamilyUseList : group.data->eventFamilyHackList;
 
@@ -261,7 +261,7 @@ namespace Plugins::Triggers
 		// auto traceId = std::vformat(L"{0}-{1}{2}", std::make_wformat_args(Hk::Message::GetWStringFromIdS(npcFactionShortIds)));
 	}
 
-	bool HandleDisconnect(RuntimeTerminalGroup& group)
+	static bool HandleDisconnect(RuntimeTerminalGroup& group)
 	{
 		// Checks if the player has a ship before proceeding. This handles disconnects, crashing and docking.
 		if (Hk::Player::GetShip(group.activeClient).has_value())
@@ -278,7 +278,7 @@ namespace Plugins::Triggers
 		return true;
 	}
 
-	bool HandleOutOfRange(RuntimeTerminalGroup& group)
+	static bool HandleOutOfRange(RuntimeTerminalGroup& group)
 	{
 		if (ClientIsInRangeOfSolar(group.activeClient, group.currentTerminal, global->config->terminalSustainRadiusInMeters))
 		{
@@ -312,7 +312,7 @@ namespace Plugins::Triggers
 		return true;
 	}
 
-	void ProcessActiveTerminal(RuntimeTerminalGroup& group)
+	static void ProcessActiveTerminal(RuntimeTerminalGroup& group)
 	{
 		if (!group.activeClient)
 		{
@@ -343,7 +343,7 @@ namespace Plugins::Triggers
 		}
 	}
 
-	void TerminalInteractionTimer()
+	static void TerminalInteractionTimer()
 	{
 		// Loops over the active terminals every 5 seconds and processes them.
 		for (auto& group : global->runtimeGroups)
@@ -352,7 +352,7 @@ namespace Plugins::Triggers
 		}
 	}
 
-	void CleanupTimer()
+	static void CleanupTimer()
 	{
 		auto currentTime = Hk::Time::GetUnixSeconds();
 
@@ -370,7 +370,7 @@ namespace Plugins::Triggers
 		}
 	}
 
-	void SavePlayerConfigToJson(CAccount* account)
+	static void SavePlayerConfigToJson(CAccount* account)
 	{
 		auto settingsPath = Hk::Client::GetAccountDirName(account);
 		char dataPath[MAX_PATH];
@@ -378,7 +378,7 @@ namespace Plugins::Triggers
 		Serializer::SaveToJson(global->playerConfigs[account], std::format("{}\\Accts\\MultiPlayer\\{}\\triggers.json", dataPath, wstos(settingsPath)));
 	}
 
-	void LoadPlayerConfigFromJson(CAccount* account)
+	static void LoadPlayerConfigFromJson(CAccount* account)
 	{
 		auto settingsPath = Hk::Client::GetAccountDirName(account);
 		char dataPath[MAX_PATH];
@@ -387,7 +387,7 @@ namespace Plugins::Triggers
 		global->playerConfigs[account] = settings;
 	}
 
-	void OnLogin([[maybe_unused]] struct SLoginInfo const& login, ClientId& client)
+	static void OnLogin([[maybe_unused]] struct SLoginInfo const& login, ClientId& client)
 	{
 		auto account = Hk::Client::GetAccountByClientID(client);
 		auto accountId = account->wszAccId;
@@ -395,7 +395,7 @@ namespace Plugins::Triggers
 		AddLog(LogType::Normal, LogLevel::Debug, std::format("Loading settings for {} from stored json file...", wstos(accountId)));
 	}
 
-	void UserCmdTogglePlayerConfigs(ClientId& client, const std::wstring& param)
+	static void UserCmdTogglePlayerConfigs(ClientId& client, const std::wstring& param)
 	{
 		auto option = GetParam(param, L' ', 1);
 		auto account = Hk::Client::GetAccountByClientID(client);
@@ -424,7 +424,7 @@ namespace Plugins::Triggers
 		}
 	}
 
-	void UserCmdStartTerminalInteraction(ClientId& client, const std::wstring& param)
+	static void UserCmdStartTerminalInteraction(ClientId& client, const std::wstring& param)
 	{
 		// Check to make sure the plugin has loaded dependencies and settings.
 		if (!global->pluginActive)
