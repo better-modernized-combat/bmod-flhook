@@ -278,7 +278,7 @@ namespace Plugins::Triggers
 		Trace trace {};
 
 		trace.packetId = std::format(L"{}-{}{}-{}", Hk::Message::GetWStringFromIdS(npcFactionShortIds), randomLetter, terminalId, stows(timestampPart));
-		trace.despawnTime = position->despawnTime;
+		trace.despawnTime = Hk::Time::GetUnixSeconds() + event.lifetimeInSeconds;
 		trace.traceLocation = rewardSectorMessage;
 		trace.traceName = stows(event.name);
 		trace.playerName = Hk::Client::GetCharacterNameByID(group.activeClient).value();
@@ -423,6 +423,53 @@ namespace Plugins::Triggers
 		AddLog(LogType::Normal, LogLevel::Debug, std::format("Loading settings for {} from stored json file...", wstos(accountId)));
 	}
 
+	static void UserCmdShowTraces(ClientId& client)
+	{
+		auto account = Hk::Client::GetAccountByClientID(client);
+		if (global->traceMap[account].empty())
+		{
+			PrintUserCmdText(client, L"You have no traces stored in your ship's databank right now.");
+			return;
+		}
+
+		PrintUserCmdText(client, L"");
+		auto& traceMap = global->traceMap[account];
+
+		// Loop once initially to remove any expired traces
+		for (auto iter = traceMap.begin(); iter != traceMap.end(); ++iter)
+		{
+			if (Hk::Time::GetUnixSeconds() >= iter->despawnTime)
+			{
+				global->traceMap[account].erase(iter);
+				return;
+			}
+		}
+
+		for (auto iter = traceMap.begin(); iter != traceMap.end(); ++iter)
+		{
+			std::wstring remainingTimeMessage;
+			if (iter->despawnTime - Hk::Time::GetUnixSeconds() < 60)
+			{
+				remainingTimeMessage = L"less than 1 minute";
+			}
+			if (iter->despawnTime - Hk::Time::GetUnixSeconds() < 120)
+			{
+				remainingTimeMessage = L"1 minute";
+			}
+			else
+			{
+				remainingTimeMessage = std::format(L"{} minutes", (iter->despawnTime - Hk::Time::GetUnixSeconds()) / 60);
+			}
+
+			PrintUserCmdText(client,
+			    std::format(L"PACKET ID: {}\nDETECTED: {}\nLOCATION: Sector {}\nTIME WINDOW: {}\n",
+			        iter->packetId,
+			        iter->traceName,
+			        iter->traceLocation,
+			        remainingTimeMessage));
+		}
+	}
+
 	static void UserCmdTogglePlayerConfigs(ClientId& client, const std::wstring& param)
 	{
 		auto option = GetParam(param, L' ', 1);
@@ -463,6 +510,12 @@ namespace Plugins::Triggers
 
 		auto action = GetParam(param, L' ', 0);
 		auto confirm = GetParam(param, L' ', 1);
+
+		if (action == L"show")
+		{
+			UserCmdShowTraces(client);
+			return;
+		}
 
 		if (action == L"configure")
 		{
@@ -520,7 +573,7 @@ namespace Plugins::Triggers
 		group->currentTerminalIsLawful = isLawful;
 		if (!isLawful && action != L"hack")
 		{
-			PrintUserCmdText(client, L"Invalid terminal command, valid options are 'hack', 'use' and 'configure'.");
+			PrintUserCmdText(client, L"Invalid terminal command, valid options are 'hack', 'use', 'show' and 'configure'.");
 			return;
 		}
 
