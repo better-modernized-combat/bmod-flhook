@@ -244,21 +244,49 @@ namespace Plugins::Triggers
 		    group.activeClient, std::vformat(event.descriptionMedInfo, std::make_wformat_args(rewardSectorMessage, (event.lifetimeInSeconds / 60))));
 		Hk::Client::PlaySoundEffect(group.activeClient, CreateID("ui_end_scan"));
 
-		//// TODO: ID
-		////  Fetch the terminal's reputation and affiliation values
-		// int terminalReputation;
-		// pub::SpaceObj::GetRep(group.currentTerminal, terminalReputation);
-		// uint terminalAffiliation;
-		// pub::Reputation::GetAffiliation(terminalReputation, terminalAffiliation);
+		//  Fetch the terminal's reputation and affiliation values
+		int terminalReputation;
+		pub::SpaceObj::GetRep(group.currentTerminal, terminalReputation);
+		uint terminalAffiliation;
+		pub::Reputation::GetAffiliation(terminalReputation, terminalAffiliation);
 
-		//// Get the IDS Name for the faction We use this in several messages.
-		// uint npcFactionShortIds;
-		// pub::Reputation::GetShortGroupName(terminalAffiliation, npcFactionShortIds);
+		if (!group.currentTerminalIsLawful)
+		{
+			uint npcFactionIds;
+			pub::Reputation::GetGroupName(terminalAffiliation, npcFactionIds);
 
-		// auto a = std::to_wstring(group.currentTerminal).substr(0, 4);
-		// auto b = std::to_wstring(Hk::Time::GetUnixSeconds()).substr();
+			PrintLocalUserCmdText(group.activeClient,
+			    std::vformat(global->config->messageHackFinishNotifyAll,
+			        std::make_wformat_args(Hk::Client::GetCharacterNameByID(group.activeClient).value(),
+			            stows(group.data->terminalName),
+			            rewardSectorMessage,
+			            Hk::Message::GetWStringFromIdS(npcFactionIds))),
+			    global->config->terminalNotifyAllRadiusInMeters);
+		}
 
-		// auto traceId = std::vformat(L"{0}-{1}{2}", std::make_wformat_args(Hk::Message::GetWStringFromIdS(npcFactionShortIds)));
+		// Get the IDS Name for the faction We use this in several messages.
+		uint npcFactionShortIds;
+		pub::Reputation::GetShortGroupName(terminalAffiliation, npcFactionShortIds);
+
+		auto terminalId = std::to_wstring(group.currentTerminal).substr(0, 2);
+		auto timestampPart = std::format("{:%H%M}", std::chrono::system_clock::now());
+
+		constexpr char letters[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+		char randomLetter = letters[GetRandomNumber(0, 25)];
+
+		auto account = Hk::Client::GetAccountByClientID(group.activeClient);
+		Trace trace {};
+
+		trace.packetId = std::format(L"{}-{}{}-{}", Hk::Message::GetWStringFromIdS(npcFactionShortIds), randomLetter, terminalId, stows(timestampPart));
+		trace.despawnTime = position->despawnTime;
+		trace.traceLocation = rewardSectorMessage;
+		trace.traceName = stows(event.name);
+		trace.playerName = Hk::Client::GetCharacterNameByID(group.activeClient).value();
+
+		PrintUserCmdText(group.activeClient, std::format(L"Adding data packet {} to local storage.", trace.packetId));
+
+		auto emplacement = global->traceMap.try_emplace(account);
+		emplacement.first->second.emplace_back(trace);
 	}
 
 	static bool HandleDisconnect(RuntimeTerminalGroup& group)
@@ -459,22 +487,6 @@ namespace Plugins::Triggers
 
 		auto target = res.value();
 
-		// Check if the subcommand is valid
-		auto isLawful = action == L"use";
-		global->runtimeGroups[client].currentTerminalIsLawful = isLawful;
-		if (!isLawful && action != L"hack")
-		{
-			PrintUserCmdText(client, L"Invalid terminal command, valid options are 'hack', 'use' and 'configure'.");
-			return;
-		}
-
-		// Check if the player is within hackingInitiateRadius
-		if (bool inRange = ClientIsInRangeOfSolar(client, target, global->config->terminalInitiateRadiusInMeters); !inRange)
-		{
-			PrintUserCmdText(client, L"The target you have selected is too far away to interact with. Please get closer.");
-			return;
-		}
-
 		RuntimeTerminalGroup* group = nullptr;
 
 		//  Check if this solar is on the list of available terminals
@@ -500,6 +512,22 @@ namespace Plugins::Triggers
 		if (!group)
 		{
 			PrintUserCmdText(client, L"The target you have selected is not a valid target for terminal interaction.");
+			return;
+		}
+
+		// Check if the subcommand is valid
+		auto isLawful = action == L"use";
+		group->currentTerminalIsLawful = isLawful;
+		if (!isLawful && action != L"hack")
+		{
+			PrintUserCmdText(client, L"Invalid terminal command, valid options are 'hack', 'use' and 'configure'.");
+			return;
+		}
+
+		// Check if the player is within hackingInitiateRadius
+		if (bool inRange = ClientIsInRangeOfSolar(client, target, global->config->terminalInitiateRadiusInMeters); !inRange)
+		{
+			PrintUserCmdText(client, L"The target you have selected is too far away to interact with. Please get closer.");
 			return;
 		}
 
@@ -593,7 +621,7 @@ namespace Plugins::Triggers
 					// TODO: Rejig this?
 					SpawnedObject npcObject;
 					npcObject.spaceId =
-					    global->npcCommunicator->CreateNpc(group->data->hostileHackNpcs[GetRandomNumber(0, group->data->hostileHackNpcs.size())],
+					    global->npcCommunicator->CreateNpc(group->data->hostileHackNpcs[GetRandomNumber(0, group->data->hostileHackNpcs.size() - 1)],
 					        npcSpawnPos,
 					        EulerMatrix({0.f, 0.f, 0.f}),
 					        clientSystem,
@@ -686,8 +714,7 @@ REFL_AUTO(type(Event), field(name), field(solarFormation), field(npcs), field(sp
 REFL_AUTO(type(EventFamily), field(name), field(spawnWeight), field(eventList), field(spawnPositionList));
 REFL_AUTO(type(TerminalGroup), field(terminalGroupName), field(terminalName), field(cooldownTimeInSeconds), field(useTimeInSeconds), field(hackTimeInSeconds),
     field(hackHostileChance), field(minHostileHackHostileNpcs), field(maxHostileHackHostileNpcs), field(useCostInCredits), field(minHackRewardInCredits),
-    field(maxHackRewardInCredits), field(terminalList), field(eventFamilyUseList), field(eventFamilyHackList), field(hackRepReduction), field(hostileHackNpcs),
-    field(traceMessage));
+    field(maxHackRewardInCredits), field(terminalList), field(eventFamilyUseList), field(eventFamilyHackList), field(hackRepReduction), field(hostileHackNpcs));
 REFL_AUTO(type(Config), field(terminalGroups), field(terminalInitiateRadiusInMeters), field(terminalSustainRadiusInMeters),
     field(terminalNotifyAllRadiusInMeters), field(messageHackStartNotifyAll), field(messageHackFinishNotifyAll), field(factionNpcSpawnList),
     field(terminalHealthAdjustmentForStatus), field(shipActiveTerminalFuse), field(hackNpcLifetimeInSeconds));

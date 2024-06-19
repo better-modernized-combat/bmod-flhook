@@ -47,6 +47,15 @@ namespace Plugins::Triggers
 		std::vector<Position> spawnPositionList;
 	};
 
+	struct Trace
+	{
+		std::wstring packetId;
+		std::wstring traceName;
+		std::wstring traceLocation;
+		std::wstring playerName;
+		uint despawnTime = 0;
+	};
+
 	struct TerminalGroup final : Reflectable
 	{
 		std::string terminalGroupName = "terminal_group_1";
@@ -71,7 +80,7 @@ namespace Plugins::Triggers
 
 		// Possible NPCs that can spawn for this terminal if a hack attempt rolls hostile.
 		std::vector<std::wstring> hostileHackNpcs;
-		std::string traceMessage = "{} downloaded data from this {} at {}. A trace indicates that they were provided with coordinates in {}, {}.";
+		Trace lastTrace {};
 	};
 
 	struct RuntimeTerminalGroup
@@ -114,6 +123,7 @@ namespace Plugins::Triggers
 		Plugins::SolarControl::SolarCommunicator* solarCommunicator = nullptr;
 		bool pluginActive = true;
 		std::map<CAccount*, PlayerConfig> playerConfigs;
+		std::map<CAccount*, std::vector<Trace>> traceMap;
 		std::vector<RuntimeTerminalGroup> runtimeGroups;
 		std::vector<SpawnedObject> spawnedObjects;
 		std::mt19937 randomEngine;
