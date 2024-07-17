@@ -580,7 +580,9 @@ namespace Plugins::Triggers
 		// Check if the player is within hackingInitiateRadius
 		if (bool inRange = ClientIsInRangeOfSolar(client, target, global->config->terminalInitiateRadiusInMeters); !inRange)
 		{
-			PrintUserCmdText(client, L"The target you have selected is too far away to interact with. Please get closer.");
+			PrintUserCmdText(client,
+			    std::format(L"The target you have selected is too far away to interact with. Please get within {}m in order to interact with the terminal.",
+			        global->config->terminalInitiateRadiusInMeters));
 			return;
 		}
 
@@ -671,7 +673,6 @@ namespace Plugins::Triggers
 					    clientPos.x + GetRandomNumber(-2000, 2000), clientPos.y + GetRandomNumber(-2000, 2000), clientPos.z + GetRandomNumber(-2000, 2000)};
 
 					// Spawns an NPC from the group's possible pool and adds it to the list for this terminalGroup's live NPCs.
-					// TODO: Rejig this?
 					SpawnedObject npcObject;
 					npcObject.spaceId =
 					    global->npcCommunicator->CreateNpc(group->data->hostileHackNpcs[GetRandomNumber(0, group->data->hostileHackNpcs.size() - 1)],
