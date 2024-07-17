@@ -288,8 +288,9 @@ namespace Plugins::SolarControl
 		si.Costume.righthand = 0;
 		si.Costume.accessories = 0;
 		si.iVoiceId = CreateID("atc_leg_m01");
-		std::string npcId = wstos(name) + std::to_string(global->spawnedSolars.size());
-		strncpy_s(si.cNickName, sizeof(si.cNickName), npcId.c_str(), name.size() + global->spawnedSolars.size());
+		static int incrementer = 0;
+		std::string npcId = wstos(name) + std::to_string(incrementer++);
+		strncpy_s(si.cNickName, sizeof(si.cNickName), npcId.c_str(), npcId.size());
 
 		// Do we need to vary the starting position slightly? Useful when spawning multiple objects
 		si.vPos = position;
@@ -319,12 +320,12 @@ namespace Plugins::SolarControl
 		}
 
 		// Define the string used for the scanner name.ad.
-		FmtStr scannerName(arch.infocard, nullptr);
+		FmtStr scannerName(0, nullptr);
 		scannerName.begin_mad_lib(arch.infocard);
 		scannerName.end_mad_lib();
 
 		// Define the string used for the solar name.
-		FmtStr solarName(arch.infocard, nullptr);
+		FmtStr solarName(0, nullptr);
 		solarName.begin_mad_lib(arch.infocard);
 		solarName.end_mad_lib();
 
