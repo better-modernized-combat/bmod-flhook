@@ -365,6 +365,7 @@ namespace Plugins::Triggers
 		{
 			CompleteTerminalInteraction(group);
 			pub::SpaceObj::SetRelativeHealth(group.currentTerminal, 1.f);
+			UnLightShipFuse(group.activeClient, global->config->shipActiveTerminalFuse);
 			group.activeClient = 0;
 			group.lastActivatedTime = Hk::Time::GetUnixSeconds();
 			return;
