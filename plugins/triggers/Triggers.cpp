@@ -140,7 +140,7 @@ namespace Plugins::Triggers
 	/** @ingroup Triggers
 	 * @brief Creates a point of interest and it's accompanying NPCs if there are any defined.
 	 */
-	static void CreatePoiEvent(const Event& event, const Position& position)
+	static void CreatePoiEvent(const Event& event, Position& position)
 	{
 		Vector pos = {position.coordinates[0], position.coordinates[1], position.coordinates[2]};
 		Matrix mat = EulerMatrix({0.f, 0.f, 0.f});
@@ -151,6 +151,7 @@ namespace Plugins::Triggers
 			spawnedObject.spaceId = object;
 			spawnedObject.despawnTime = Hk::Time::GetUnixSeconds() + event.lifetimeInSeconds;
 			global->spawnedObjects.emplace_back(spawnedObject);
+			spawnedObject.position = &position;
 		}
 
 		for (const auto& npcs : event.npcs)
@@ -210,23 +211,31 @@ namespace Plugins::Triggers
 		//  Select a random position
 		Position* position = nullptr;
 		int counter = 0;
+		const auto unix = Hk::Time::GetUnixSeconds();
 		do
 		{
 			position = &family.spawnPositionList[GetRandomNumber(0, family.spawnPositionList.size() - 1)];
-
-			if (!position->despawnTime)
-			{
-				position->despawnTime = Hk::Time::GetUnixSeconds();
-			}
 
 			if (counter++ > 30)
 			{
 				Console::ConErr(std::format("Unable to find a valid spawn position for {}. Please check your config has an appropriate number of spawn "
 				                            "locations defined for this family.",
 				    family.name));
+				PrintUserCmdText(group.activeClient, L"Unable to find a point of interest, any credits spent have been refunded.");
+
+				if (group.currentTerminalIsLawful)
+				{
+					Hk::Player::AdjustCash(group.activeClient, group.data->useCostInCredits);
+				}
 				return;
 			}
-		} while (position->despawnTime == 0);
+
+			if (!position->despawnTime)
+			{
+				position->despawnTime = unix;
+			}
+
+		} while (position->despawnTime != unix);
 
 		std::wstring rewardSectorMessage = Hk::Math::VectorToSectorCoord<std::wstring>(
 		    CreateID(position->system.c_str()), Vector {position->coordinates[0], position->coordinates[1], position->coordinates[2]});
@@ -389,6 +398,7 @@ namespace Plugins::Triggers
 		{
 			if (currentTime > object->despawnTime)
 			{
+				object->position->despawnTime = 0;
 				pub::SpaceObj::Destroy(object->spaceId, VANISH);
 				object = global->spawnedObjects.erase(object);
 			}

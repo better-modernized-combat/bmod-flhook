@@ -25,6 +25,7 @@ namespace Plugins::Triggers
 	{
 		uint spaceId = 0;
 		uint despawnTime = 0;
+		Position* position;
 	};
 
 	struct Event final : Reflectable
