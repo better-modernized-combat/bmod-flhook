@@ -12,6 +12,14 @@ namespace IEngineHook
 	void Naked__LaunchPosition();
 	void Naked__LoadReputationFromCharacterFile();
 
+	void FindInStarListNaked();
+	void GameObjectDestructorNaked();
+	void CAsteroidInitNaked();
+	void CGuidedInitNaked();
+	void CObjDestrOrgNaked();
+	CObject* __cdecl CObjectFindDetour(const uint& spaceObjId, CObject::Class objClass);
+	CObject* __cdecl CObjAllocDetour(CObject::Class objClass);
+
 	extern FARPROC g_OldInitCShip;
 	extern FARPROC g_OldDestroyCShip;
 	extern FARPROC g_OldLaunchPosition;
@@ -259,6 +267,18 @@ void LoadUserCharSettings(ClientId client)
 install the callback hooks
 **************************************************************************************************************/
 
+void Detour(void* pOFunc, void* pHkFunc)
+{
+	DWORD dwOldProtection = 0; // Create a DWORD for VirtualProtect calls to allow us to write.
+	BYTE bPatch[5]; // We need to change 5 bytes and I'm going to use memcpy so this is the simplest way.
+	bPatch[0] = 0xE9; // Set the first byte of the byte array to the op code for the JMP instruction.
+	VirtualProtect(pOFunc, 5, PAGE_EXECUTE_READWRITE, &dwOldProtection); // Allow us to write to the memory we need to change
+	DWORD dwRelativeAddress = (DWORD)pHkFunc - (DWORD)pOFunc - 5; // Calculate the relative JMP address.
+	memcpy(&bPatch[1], &dwRelativeAddress, 4); // Copy the relative address to the byte array.
+	memcpy(pOFunc, bPatch, 5); // Change the first 5 bytes to the JMP instruction.
+	VirtualProtect(pOFunc, 5, dwOldProtection, 0); // Set the protection back to what it was.
+}
+
 bool InitHookExports()
 {
 	// init critial sections
@@ -296,6 +316,30 @@ bool InitHookExports()
 	WriteProcMem(pAddress, szNOPs, 5);
 
 	// patch flserver so it can better handle faulty house entries in char files
+
+	// FLOptimizer
+
+	FARPROC GameObjectDestructor = FARPROC(0x6CEE4A0);
+	Detour(GameObjectDestructor, IEngineHook::GameObjectDestructorNaked);
+
+	FARPROC CAsteroidInit = FARPROC(0x62A28F0);
+	Detour(CAsteroidInit, IEngineHook::CAsteroidInitNaked);
+
+	FARPROC CObjectDestr = FARPROC(0x62AF440);
+	Detour(CObjectDestr, IEngineHook::CObjDestrOrgNaked);
+
+	BYTE patchCobjDestr[] = { 0xEB, 0x5F };
+	WriteProcMem((char*)hModCommon + 0x4F45D, patchCobjDestr, sizeof(patchCobjDestr));
+
+	FARPROC CObjectFindDetourFunc = FARPROC(&IEngineHook::CObjectFindDetour);
+	WriteProcMem((char*)hModServer + 0x84464, &CObjectFindDetourFunc, 4);
+
+	FARPROC CObjAlloc = FARPROC(0x62AEE50);
+	Detour(CObjAlloc, IEngineHook::CObjAllocDetour);
+
+	FARPROC FindIObjInStarList = FARPROC(0x6D0C840);
+	Detour(FindIObjInStarList, IEngineHook::FindInStarListNaked);
+
 
 	// divert call to house load/save func
 	pAddress = SRV_ADDR(0x679C6);
