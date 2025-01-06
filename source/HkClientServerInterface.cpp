@@ -1916,7 +1916,7 @@ void IClientImpl::unknown_54(ClientId client, uint _genArg1, uint _genArg2, uint
 	CALL_CLIENT_POSTAMBLE;
 }
 
-bool IClientImpl::Send_FLPACKET_COMMON_UPDATEOBJECT(ClientId client, SSPObjUpdateInfo& update)
+bool IClientImpl::Send_FLPACKET_COMMON_UPDATEOBJECT(ClientId client, SSPObjUpdateInfoSimple& update)
 {
 	auto [retVal, skip] = CallPluginsBefore<bool>(HookedCall::IClientImpl__Send_FLPACKET_COMMON_UPDATEOBJECT, client, update);
 
@@ -5140,7 +5140,7 @@ HookEntry IServerImplEntries[] = {
 
 void PluginManager::setupProps()
 {
-	setProps(HookedCall::IEngine__CShip__Init, true, false);
+	setProps(HookedCall::IEngine__CShip__Init, false, true);
 	setProps(HookedCall::IEngine__CShip__Destroy, true, false);
 	setProps(HookedCall::IEngine__UpdateTime, true, true);
 	setProps(HookedCall::IEngine__ElapseTime, true, true);

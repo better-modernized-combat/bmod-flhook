@@ -80,7 +80,7 @@ namespace Plugins::LootTables
 			}
 
 			// roll n times, depending on loottable
-			for (int i = 0; i < lootTable.rollCount; i++)
+			for (uint i = 0; i < lootTable.rollCount; i++)
 			{
 				// Accumulate weights
 				std::vector<uint> weights;
@@ -92,7 +92,7 @@ namespace Plugins::LootTables
 				auto chosenIndex = discreteDistribution(mersenneTwisterEngine);
 
 				// Drop item corresponding to said index
-				Server.MineAsteroid(ship->iSystem,
+				Server.MineAsteroid(ship->system,
 				    ship->get_position(),
 				    global->config->lootDropContainerHashed,
 				    lootTable.dropWeights[chosenIndex].itemHashed,

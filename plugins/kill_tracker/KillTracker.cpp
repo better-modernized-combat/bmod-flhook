@@ -198,8 +198,9 @@ namespace Plugins::KillTracker
 				return;
 			std::wstring victimName = Hk::Client::GetCharacterNameByID(clientVictim).value();
 			std::wstring greatestInflictorName = Hk::Client::GetCharacterNameByID(greatestInflictorId).value();
+			uint damageValue = static_cast<uint>(ceil((greatestDamageDealt / totalDamageTaken) * 100));
 			std::wstring greatestDamageMessage = std::vformat(global->config->deathDamageTemplate,
-			    std::make_wformat_args(victimName, greatestInflictorName, static_cast<uint>(ceil((greatestDamageDealt / totalDamageTaken) * 100))));
+			    std::make_wformat_args(victimName, greatestInflictorName, damageValue));
 
 			greatestDamageMessage = Hk::Message::FormatMsg(MessageColor::Orange, MessageFormat::Normal, greatestDamageMessage);
 			Hk::Message::FMsgS(system, greatestDamageMessage);

@@ -21,7 +21,7 @@
     <CharacterSet>MultiByte</CharacterSet>
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <PlatformToolset>v143</PlatformToolset>
-    <UseOfMfc>Static</UseOfMfc>
+    <UseOfMfc>false</UseOfMfc>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseWithDebug|Win32'" Label="Configuration">
     <CharacterSet>MultiByte</CharacterSet>
@@ -118,14 +118,12 @@ setx FLHOOK_SDK_PATH "$(SolutionDir)..\FLHookSDK\\"</Command>
       </Command>
     </PreLinkEvent>
     <PostBuildEvent>
-      <Command>
-				IF "%FL_PATH%"=="" exit 0
-				robocopy $(SolutionDir)../dist/Release %FL_PATH%\\EXE  "*.dll" /is /E /e
-				if ERRORLEVEL GTR 5 goto HandleError
-				exit 0
-				:HandleError
-				exit %ERRORLEVEL%
-			</Command>
+      <Command>xcopy /y  "$(OutDir)$(TargetName).dll" "$(DistDir)"
+xcopy /y  "$(OutDir)$(TargetName).pdb" "$(DistDir)"
+if "$(BMOD_COPY_PATH)" NEQ "" (
+xcopy /y  "$(OutDir)$(TargetName).dll" "$(BMOD_COPY_PATH)\"
+xcopy /y  "$(OutDir)$(TargetName).pdb" "$(BMOD_COPY_PATH)\"
+)</Command>
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>

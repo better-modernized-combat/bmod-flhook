@@ -2,7 +2,41 @@
 
 namespace Hk::Math
 {
-	float Distance3D(Vector v1, Vector v2)
+	Vector VectorMultiply(const Vector& a, float b)
+	{
+		return { a.x * b, a.y * b, a.z * b };
+	}
+
+	Vector VectorCross(const Vector& v1, const Vector& v2)
+	{
+		Vector vec;
+		vec.x = v1.y * v2.z - v1.z * v2.y;
+		vec.y = v1.z * v2.x - v1.x * v2.z;
+		vec.z = v1.x * v2.y - v1.y * v2.x;
+		return vec;
+	}
+
+	float SquaredVectorMagnitude(const Vector& v)
+	{
+		return v.x * v.x + v.y * v.y + v.z * v.z;
+	}
+
+	float VectorMagnitude(const Vector& v)
+	{
+		return sqrtf(v.x * v.x + v.y * v.y + v.z * v.z);
+	}
+
+	void ResizeVector(Vector& v, float targetLength)
+	{
+		float currLength = VectorMagnitude(v);
+		float ratio = targetLength / currLength;
+
+		v.x *= ratio;
+		v.y *= ratio;
+		v.z *= ratio;
+	}
+
+	float Distance3D(const Vector& v1, const Vector& v2)
 	{
 		const float sq1 = v1.x - v2.x;
 		const float sq2 = v1.y - v2.y;

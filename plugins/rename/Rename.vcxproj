@@ -63,6 +63,14 @@
       <EnableModules>true</EnableModules>
       <DisableSpecificWarnings>5222</DisableSpecificWarnings>
     </ClCompile>
+    <PostBuildEvent>
+      <Command>xcopy /y  "$(OutDir)$(TargetName).dll" "$(DistDir)plugins\"
+xcopy /y  "$(OutDir)$(TargetName).pdb" "$(DistDir)plugins\"
+if "$(BMOD_COPY_PATH)" NEQ "" (
+xcopy /y  "$(OutDir)$(TargetName).dll" "$(BMOD_COPY_PATH)\plugins\"
+xcopy /y  "$(OutDir)$(TargetName).pdb" "$(BMOD_COPY_PATH)\plugins\"
+)</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseWithDebug|Win32'">
     <Link>

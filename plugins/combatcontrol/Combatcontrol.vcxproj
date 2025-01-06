@@ -11,11 +11,11 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{14C91A47-44A3-4D90-99C3-BFFA10491A56}</ProjectGuid>
-    <RootNamespace>mark</RootNamespace>
+    <ProjectGuid>{CB67FE1E-668A-4C36-A5D9-25D4AAE9AF5A}</ProjectGuid>
+    <RootNamespace>combatcontrol_plugin</RootNamespace>
     <Keyword>Win32Proj</Keyword>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-    <ProjectName>Mark</ProjectName>
+    <ProjectName>Combatcontrol</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
@@ -44,10 +44,10 @@
     <Import Project="..\Plugin Common.props" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <TargetName>mark</TargetName>
+    <TargetName>combatcontrol</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseWithDebug|Win32'">
-    <TargetName>mark</TargetName>
+    <TargetName>combatcontrol</TargetName>
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg">
     <VcpkgEnableManifest>true</VcpkgEnableManifest>
@@ -80,10 +80,8 @@ xcopy /y  "$(OutDir)$(TargetName).pdb" "$(BMOD_COPY_PATH)\plugins\"
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Functions.cpp" />
-    <ClCompile Include="Mark.cpp" />
-    <ClCompile Include="Timers.cpp" />
-    <ClCompile Include="UserCommands.cpp" />
+    <ClCompile Include="Combatcontrol.cpp" />
+    <ClCompile Include="CustomHooks.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\project\FLHook.vcxproj">
@@ -91,7 +89,7 @@ xcopy /y  "$(OutDir)$(TargetName).pdb" "$(BMOD_COPY_PATH)\plugins\"
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Mark.h" />
+    <ClInclude Include="Combatcontrol.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

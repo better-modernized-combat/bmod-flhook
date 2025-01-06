@@ -139,7 +139,7 @@ namespace Hk
 		DLL cpp::result<void, Error> UnlockAccountAccess(CAccount* acc);
 		DLL cpp::result<void, Error> PlaySoundEffect(ClientId client, uint soundId);
 		DLL void GetItemsForSale(uint baseId, std::list<uint>& lstItems);
-		DLL cpp::result<IObjInspectImpl*, Error> GetInspect(ClientId client);
+		DLL cpp::result<IObjRW*, Error> GetInspect(ClientId client);
 		DLL EngineState GetEngineState(ClientId client);
 		DLL EquipmentType GetEqType(Archetype::Equipment* eq);
 	} // namespace Client
@@ -152,7 +152,12 @@ namespace Hk
 		 * @param v2 3d vector 2
 		 * @returns a scalar of the distance between point v2 and v1
 		 */
-		DLL float Distance3D(Vector v1, Vector v2);
+		DLL float Distance3D(const Vector& v1, const Vector& v2);
+		DLL float SquaredVectorMagnitude(const Vector& v);
+		DLL Vector VectorMultiply(const Vector& a, float b);
+		DLL Vector VectorCross(const Vector& v1, const Vector& v2);
+		DLL float VectorMagnitude(const Vector& v);
+		DLL void ResizeVector(Vector& v, float targetLength);
 
 		/**
 		 * See Distance3D for more information
@@ -264,6 +269,7 @@ namespace Hk
 		DLL cpp::result<Universe::IBase*, Error> GetBaseByWildcard(const std::wstring& targetBaseName);
 		DLL cpp::result<uint, Error> GetAffiliation(BaseId solarId);
 		DLL cpp::result<float, Error> GetCommodityPrice(BaseId baseId, GoodId goodId);
+		DLL cpp::result<IObjRW*, Error> GetInspect(uint objId);
 	} // namespace Solar
 
 	namespace Ini

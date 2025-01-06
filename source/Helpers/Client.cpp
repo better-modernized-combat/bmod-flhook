@@ -365,17 +365,18 @@ namespace Hk::Client
 	}
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	cpp::result<IObjInspectImpl*, Error> GetInspect(ClientId client)
+	cpp::result<IObjRW*, Error> GetInspect(ClientId client)
 	{
 		uint ship;
 		pub::Player::GetShip(client, ship);
-		uint iDunno;
-		IObjInspectImpl* inspect;
-		if (!GetShipInspect(ship, inspect, iDunno))
+		StarSystem* dummy;
+		IObjRW* inspect;
+		if (!GetShipInspect(ship, inspect, dummy))
 			return cpp::fail(Error::InvalidShip);
 		else
 			return inspect;
 	}
+
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

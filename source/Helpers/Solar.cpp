@@ -142,4 +142,14 @@ namespace Hk::Solar
 		}
 		return price;
 	}
+
+	cpp::result<IObjRW*, Error> GetInspect(uint objId)
+	{
+		StarSystem* dummy;
+		IObjRW* inspect;
+		if (!GetShipInspect(objId, inspect, dummy))
+			return cpp::fail(Error::InvalidShip);
+		else
+			return inspect;
+	}
 } // namespace Hk::Solar

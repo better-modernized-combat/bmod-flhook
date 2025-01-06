@@ -117,8 +117,7 @@ namespace Plugins::SolarControl
 	 */
 	void SendSolarPacket(uint& spaceId, pub::SpaceObj::SolarInfo& solarInfo)
 	{
-		uint unknown;
-		if (IObjInspectImpl * inspect; GetShipInspect(spaceId, inspect, unknown))
+		if (IObjRW * inspect = GetInspect(spaceId))
 		{
 			auto const* solar = reinterpret_cast<CSolar const*>(inspect->cobject());
 
