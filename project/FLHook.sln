@@ -1,4 +1,4 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.4.33205.214
@@ -93,6 +93,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Advanced Startup Solars", "
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Combatcontrol", "..\plugins\combatcontrol\Combatcontrol.vcxproj", "{CB67FE1E-668A-4C36-A5D9-25D4AAE9AF5A}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Triggers", "..\plugins\triggers\Triggers.vcxproj", "{3052009C-BDAF-443B-9F49-EAF85C0B4AA1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Release|Win32 = Release|Win32
@@ -135,7 +137,6 @@ Global
 		{18322D6B-43B1-49D8-A2FD-8C55EB4524AE}.Release|Win32.Build.0 = Release|Win32
 		{18322D6B-43B1-49D8-A2FD-8C55EB4524AE}.Release|x64.ActiveCfg = Release|Win32
 		{18322D6B-43B1-49D8-A2FD-8C55EB4524AE}.ReleaseWithDebug|Win32.ActiveCfg = ReleaseWithDebug|Win32
-		{18322D6B-43B1-49D8-A2FD-8C55EB4524AE}.ReleaseWithDebug|Win32.Build.0 = ReleaseWithDebug|Win32
 		{18322D6B-43B1-49D8-A2FD-8C55EB4524AE}.ReleaseWithDebug|x64.ActiveCfg = ReleaseWithDebug|Win32
 		{DF79DAB8-217F-4828-920D-89B2FDEEFB33}.Release|Win32.ActiveCfg = Release|Win32
 		{DF79DAB8-217F-4828-920D-89B2FDEEFB33}.Release|Win32.Build.0 = Release|Win32
@@ -331,6 +332,14 @@ Global
 		{CB67FE1E-668A-4C36-A5D9-25D4AAE9AF5A}.ReleaseWithDebug|Win32.Build.0 = ReleaseWithDebug|Win32
 		{CB67FE1E-668A-4C36-A5D9-25D4AAE9AF5A}.ReleaseWithDebug|x64.ActiveCfg = ReleaseWithDebug|Win32
 		{CB67FE1E-668A-4C36-A5D9-25D4AAE9AF5A}.ReleaseWithDebug|x64.Build.0 = ReleaseWithDebug|Win32
+		{3052009C-BDAF-443B-9F49-EAF85C0B4AA1}.Release|Win32.ActiveCfg = Release|Win32
+		{3052009C-BDAF-443B-9F49-EAF85C0B4AA1}.Release|Win32.Build.0 = Release|Win32
+		{3052009C-BDAF-443B-9F49-EAF85C0B4AA1}.Release|x64.ActiveCfg = Release|Win32
+		{3052009C-BDAF-443B-9F49-EAF85C0B4AA1}.Release|x64.Build.0 = Release|Win32
+		{3052009C-BDAF-443B-9F49-EAF85C0B4AA1}.ReleaseWithDebug|Win32.ActiveCfg = ReleaseWithDebug|Win32
+		{3052009C-BDAF-443B-9F49-EAF85C0B4AA1}.ReleaseWithDebug|Win32.Build.0 = ReleaseWithDebug|Win32
+		{3052009C-BDAF-443B-9F49-EAF85C0B4AA1}.ReleaseWithDebug|x64.ActiveCfg = ReleaseWithDebug|Win32
+		{3052009C-BDAF-443B-9F49-EAF85C0B4AA1}.ReleaseWithDebug|x64.Build.0 = ReleaseWithDebug|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -373,6 +382,7 @@ Global
 		{6F69FEED-80B6-4DFB-865E-90A195281BAB} = {88754785-84CA-4F78-8906-F8C39564BA83}
 		{ECC3FEAC-C696-40FA-B3D4-75BED5436199} = {88754785-84CA-4F78-8906-F8C39564BA83}
 		{CB67FE1E-668A-4C36-A5D9-25D4AAE9AF5A} = {88754785-84CA-4F78-8906-F8C39564BA83}
+		{3052009C-BDAF-443B-9F49-EAF85C0B4AA1} = {88754785-84CA-4F78-8906-F8C39564BA83}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {BAC9ADCA-E201-4AA0-8494-1C3804461C24}
