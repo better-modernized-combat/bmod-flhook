@@ -72,6 +72,7 @@ namespace Plugins::Combatcontrol
 
 	extern const std::unique_ptr<Global> global;
 
+	bool __stdcall ShipExplosionHit(IObjRW* iobj, ExplosionDamageEvent* explosion, DamageList* dmg);
 	FireResult __fastcall CELauncherFire(CELauncher* gun, void* edx, const Vector& pos);
 	void __stdcall ShipDestroyed(IObjRW* iobj, bool isKill, uint killerId);
 	void __fastcall GuidedInit(CGuided* guided, void* edx, CGuided::CreateParms& parms);
@@ -82,3 +83,5 @@ namespace Plugins::Combatcontrol
 	void LoadHookOverrides();
 
 } // namespace Plugins::Combatcontrol
+
+void HookExplosionHitNaked();

@@ -82,6 +82,7 @@ xcopy /y  "$(OutDir)$(TargetName).pdb" "$(BMOD_COPY_PATH)\plugins\"
   <ItemGroup>
     <ClCompile Include="Combatcontrol.cpp" />
     <ClCompile Include="CustomHooks.cpp" />
+    <ClCompile Include="ExplosionDamage.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\project\FLHook.vcxproj">
@@ -90,6 +91,7 @@ xcopy /y  "$(OutDir)$(TargetName).pdb" "$(BMOD_COPY_PATH)\plugins\"
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Combatcontrol.h" />
+    <ClInclude Include="FLMap.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
