@@ -45,21 +45,21 @@ namespace Plugins::Triggers
 	static void LightShipFuse(uint client, const std::string& fuse)
 	{
 		auto playerShip = Hk::Player::GetShip(client).value();
-		IObjInspectImpl* inspect;
-		uint iDunno;
+		IObjRW* inspect;
+		StarSystem* iDunno;
 
 		GetShipInspect(playerShip, inspect, iDunno);
-		Hk::Admin::LightFuse((IObjRW*)inspect, CreateID(fuse.c_str()), 0.f, 5.f, 0);
+		Hk::Admin::LightFuse(inspect, CreateID(fuse.c_str()), 0.f, 5.f, 0);
 	}
 
 	static void UnLightShipFuse(uint client, const std::string& fuse)
 	{
 		auto playerShip = Hk::Player::GetShip(client).value();
-		IObjInspectImpl* inspect;
-		uint iDunno;
+		IObjRW* inspect;
+		StarSystem* iDunno;
 
 		GetShipInspect(playerShip, inspect, iDunno);
-		Hk::Admin::UnLightFuse((IObjRW*)inspect, CreateID(fuse.c_str()));
+		Hk::Admin::UnLightFuse(inspect, CreateID(fuse.c_str()));
 	}
 
 	static bool ClientIsInRangeOfSolar(ClientId client, uint solar, float distance)
@@ -249,8 +249,10 @@ namespace Plugins::Triggers
 
 		CreatePoiEvent(event, *position);
 
+		auto timeInMinutes = event.lifetimeInSeconds / 60;
+
 		PrintUserCmdText(
-		    group.activeClient, std::vformat(event.descriptionMedInfo, std::make_wformat_args(rewardSectorMessage, (event.lifetimeInSeconds / 60))));
+		    group.activeClient, std::vformat(event.descriptionMedInfo, std::make_wformat_args(rewardSectorMessage, timeInMinutes)));
 		Hk::Client::PlaySoundEffect(group.activeClient, CreateID("ui_end_scan"));
 
 		//  Fetch the terminal's reputation and affiliation values
@@ -264,12 +266,14 @@ namespace Plugins::Triggers
 			uint npcFactionIds;
 			pub::Reputation::GetGroupName(terminalAffiliation, npcFactionIds);
 
+			auto terminalName = stows(group.data->terminalName);
+			auto factionName = Hk::Message::GetWStringFromIdS(npcFactionIds);
 			PrintLocalUserCmdText(group.activeClient,
 			    std::vformat(global->config->messageHackFinishNotifyAll,
 			        std::make_wformat_args(Hk::Client::GetCharacterNameByID(group.activeClient).value(),
-			            stows(group.data->terminalName),
+			            terminalName,
 			            rewardSectorMessage,
-			            Hk::Message::GetWStringFromIdS(npcFactionIds))),
+			            factionName)),
 			    global->config->terminalNotifyAllRadiusInMeters);
 		}
 
@@ -668,12 +672,14 @@ namespace Plugins::Triggers
 				return;
 			}
 
+			auto terminalName = stows(group->data->terminalName);
+			auto coords = Hk::Math::VectorToSectorCoord<std::wstring>(clientSystem, clientPos);
 			// This fires regardless of chance-based hostility.
 			PrintLocalUserCmdText(client,
 			    std::vformat(global->config->messageHackStartNotifyAll,
-			        std::make_wformat_args(stows(group->data->terminalName),
+			        std::make_wformat_args(terminalName,
 			            Hk::Client::GetCharacterNameByID(client).value(),
-			            Hk::Math::VectorToSectorCoord<std::wstring>(clientSystem, clientPos))),
+			            coords)),
 			    global->config->terminalNotifyAllRadiusInMeters);
 
 			if (GetRandomNumber(0, 100) <= int(group->data->hackHostileChance * 100))
