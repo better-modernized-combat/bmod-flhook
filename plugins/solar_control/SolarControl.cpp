@@ -117,9 +117,11 @@ namespace Plugins::SolarControl
 	 */
 	void SendSolarPacket(uint& spaceId, pub::SpaceObj::SolarInfo& solarInfo)
 	{
-		if (IObjRW * inspect = GetInspect(spaceId))
+		auto inspect = Hk::Solar::GetInspect(spaceId);
+		if (inspect.has_value())
 		{
-			auto const* solar = reinterpret_cast<CSolar const*>(inspect->cobject());
+			auto iobj = inspect.value();
+			auto const* solar = reinterpret_cast<CSolar const*>(iobj->cobj);
 
 			solar->launch_pos(solarInfo.vPos, solarInfo.mOrientation, 1);
 
