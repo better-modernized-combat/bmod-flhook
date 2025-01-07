@@ -1,30 +1,5 @@
 ﻿#include "Global.hpp"
-
-namespace IEngineHook
-{
-	void __cdecl UpdateTime(double interval);
-	void __stdcall ElapseTime(float interval);
-	int __cdecl DockCall(const uint& shipId, const uint& spaceId, int flags, DOCK_HOST_RESPONSE response);
-	int __cdecl FreeReputationVibe(int const& p1);
-
-	void Naked__CShip__Init();
-	void Naked__CShip__Destroy();
-	void Naked__LaunchPosition();
-	void Naked__LoadReputationFromCharacterFile();
-
-	void FindInStarListNaked();
-	void GameObjectDestructorNaked();
-	void CAsteroidInitNaked();
-	void CGuidedInitNaked();
-	void CObjDestrOrgNaked();
-	CObject* __cdecl CObjectFindDetour(const uint& spaceObjId, CObject::Class objClass);
-	CObject* __cdecl CObjAllocDetour(CObject::Class objClass);
-
-	extern FARPROC g_OldInitCShip;
-	extern FARPROC g_OldDestroyCShip;
-	extern FARPROC g_OldLaunchPosition;
-	extern FARPROC g_OldLoadReputationFromCharacterFile;
-} // namespace IEngine
+#include <unordered_set>
 
 void __stdcall ShipDestroyed(DamageList* dmgList, DWORD* ecx, uint kill);
 void __stdcall NonGunWeaponHitsBaseBefore(char* ECX, char* p1, DamageList* dmg);

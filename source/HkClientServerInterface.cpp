@@ -731,6 +731,7 @@ void DisConnect__Inner(ClientId client, EFLConnection)
 {
 	if (client <= MaxClientId && client > 0 && !ClientInfo[client].bDisconnected)
 	{
+		IEngineHook::playerShips.erase(Players[client].shipId);
 		ClientInfo[client].bDisconnected = true;
 		ClientInfo[client].lstMoneyFix.clear();
 		ClientInfo[client].iTradePartner = 0;
@@ -3940,6 +3941,7 @@ namespace IServerImplHook
 {
 	void __stdcall BaseEnter(uint baseId, ClientId client)
 	{
+		IEngineHook::playerShips.erase(Players[client].shipId);
 		AddLog(LogType::Normal, LogLevel::Debug, std::format("BaseEnter(\n\tuint baseId = {}\n\tClientId client = {}\n)", baseId, client));
 
 		auto skip = CallPluginsBefore<void>(HookedCall::IServerImpl__BaseEnter, baseId, client);
@@ -4270,6 +4272,8 @@ namespace IServerImplHook
 			CALL_SERVER_POSTAMBLE(true, );
 		}
 		PlayerLaunch__InnerAfter(shipId, client);
+
+		IEngineHook::playerShips.insert(shipId);
 
 		CallPluginsAfter(HookedCall::IServerImpl__PlayerLaunch, shipId, client);
 	}
