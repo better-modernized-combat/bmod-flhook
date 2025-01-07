@@ -50,6 +50,12 @@ namespace Plugins::Combatcontrol
 		std::vector<std::string> equipFiles;
 		std::vector<std::string> shipFiles;
 
+		if (!ini.open(scFreelancerIniFile.c_str(), false))
+		{
+			Console::ConErr("CombatControl: UNABLE TO LOAD FREELANCER.INI");
+			return;
+		}
+		
 		while (ini.read_header())
 		{
 			if (!ini.is_header("Data"))
@@ -73,9 +79,10 @@ namespace Plugins::Combatcontrol
 
 		for (std::string& equipFile : equipFiles)
 		{
-			equipFile = gameDir + equipFile;
-			if (!ini.open(equipFile.c_str(), false))
+			std::string equipFilePath = gameDir + equipFile;
+			if (!ini.open(equipFilePath.c_str(), false))
 			{
+				Console::ConErr(std::format("CombatControl: UNABLE TO LOAD {}", equipFile));
 				continue;
 			}
 			while (ini.read_header())
@@ -421,7 +428,6 @@ namespace Plugins::Combatcontrol
 
 	void __fastcall GuidedInit(CGuided* guided, void* edx, CGuided::CreateParms& parms)
 	{
-
 		global->newMissileUpdateMap[parms.id] = { 0 };
 
 		auto owner = Hk::Solar::GetInspect(parms.id);
@@ -508,6 +514,13 @@ namespace Plugins::Combatcontrol
 
 	int Update()
 	{
+		static bool firstRun = true;
+		if (firstRun)
+		{
+			firstRun = false;
+			LoadSettings();
+		}
+
 		for (auto iter = global->topSpeedWatch.begin(); iter != global->topSpeedWatch.end(); )
 		{
 
@@ -610,7 +623,6 @@ extern "C" EXPORT void ExportPluginInfo(PluginInfo* pi)
 	pi->shortName("combatcontrol");
 	pi->mayUnload(false);
 	pi->returnCode(&global->returnCode);
-	pi->emplaceHook(HookedCall::FLHook__LoadSettings, &LoadSettings, HookStep::After);
 	pi->emplaceHook(HookedCall::IEngine__CShip__Init, &CShipInit, HookStep::After);
 	pi->emplaceHook(HookedCall::IServerImpl__Update, &Update, HookStep::Before);
 	pi->versionMajor(PluginMajorVersion::VERSION_04);

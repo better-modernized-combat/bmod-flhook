@@ -27,7 +27,7 @@ using st6_free_t = void (*)(void*);
 using _RCSendChatMsg = void(__stdcall*)(uint iId, uint iTo, uint iSize, void* pRDL);
 using _CRCAntiCheat = void(__stdcall*)();
 using _GetFLName = int(__cdecl*)(char* szBuf, const wchar_t* wszStr);
-using _GetShipInspect = bool(__cdecl*)(uint& ship, class IObjRW*& iobj, struct StarSystem* starSystem);
+using _GetShipInspect = bool(__cdecl*)(uint& ship, class IObjRW*& iobj, struct StarSystem*& starSystem);
 
 using BLOWFISH_CTX = struct
 {
