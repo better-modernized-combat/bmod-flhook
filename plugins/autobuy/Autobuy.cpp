@@ -147,14 +147,90 @@ namespace Plugins::Autobuy
 		}
 	}
 
+	std::unordered_map<uint, ammoData> GetAmmoLimits(uint client)
+	{
+		std::unordered_map<uint, ammoData> returnMap;
+
+		//now that we have identified the stackables, retrieve the current ammo count for stackables
+		for (auto& equip : Players[client].equipDescList.equip)
+		{
+			bool isCommodity;
+			pub::IsCommodity(equip.iArchId, isCommodity);
+			if (isCommodity)
+			{
+				continue;
+			}
+			Archetype::Equipment* eq = Archetype::GetEquipment(equip.iArchId);
+			EquipmentType type = Hk::Client::GetEqType(eq);
+
+			if (type == ET_OTHER)
+			{
+				if (equip.bMounted)
+				{
+					continue;
+				}
+				returnMap[equip.iArchId].ammoCount = equip.iCount;
+			}
+
+			if (!equip.bMounted || equip.is_internal())
+			{
+				continue;
+			}
+
+			if (type != ET_GUN && type != ET_MINE && type != ET_MISSILE && type != ET_CM && type != ET_CD && type != ET_TORPEDO)
+			{
+				continue;
+			}
+
+			uint ammo = ((Archetype::Launcher*)eq)->iProjectileArchId;
+
+			auto ammoLimit = global->ammoLimits.find(ammo);
+			if (ammoLimit == global->ammoLimits.end())
+			{
+				continue;
+			}
+
+			if (ammoLimit->second.launcherStackingLimit > returnMap[ammo].launcherCount)
+			{
+				returnMap[ammo].launcherCount++;
+			}
+		}
+
+		for (auto& eq : Players[client].equipDescList.equip)
+		{
+			auto ammo = returnMap.find(eq.iArchId);
+			if (ammo != returnMap.end())
+			{
+				ammo->second.ammoCount = eq.iCount;
+				ammo->second.sid = eq.sId;
+				continue;
+			}
+		}
+
+		for (auto& ammo : returnMap)
+		{
+			if (global->ammoLimits.count(ammo.first))
+			{
+				ammo.second.ammoLimit = std::max(1, ammo.second.launcherCount) * global->ammoLimits.at(ammo.first).ammoLimit;
+			}
+			else
+			{
+				ammo.second.ammoLimit = MAX_PLAYER_AMMO;
+			}
+			ammo.second.ammoAdjustment = ammo.second.ammoLimit - ammo.second.ammoCount;
+		}
+
+		return returnMap;
+	}
+
 	void AddEquipToCart(const Archetype::Launcher* launcher, const std::list<CARGO_INFO>& cargo, std::list<AutobuyCartItem>& cart, AutobuyCartItem& item,
-		const std::wstring_view& desc)
+		const std::wstring_view& desc, std::unordered_map<uint, ammoData>& ammoLimitMap)
 	{
 		item.archId = launcher->iProjectileArchId;
 		uint itemId = Arch2Good(item.archId);
 		if (global->ammoLimits.contains(Arch2Good(item.archId)))
 		{
-			item.count = global->ammoLimits[itemId] - PlayerGetAmmoCount(cargo, item.archId);
+			item.count = ammoLimitMap[itemId].ammoAdjustment - PlayerGetAmmoCount(cargo, item.archId);
 		}
 		else
 		{
@@ -266,6 +342,7 @@ namespace Plugins::Autobuy
 					mountedList.push_back(item);
 			}
 
+			std::unordered_map<uint, ammoData> ammoLimitMap = GetAmmoLimits(client);
 			// check mounted equip
 			for (const auto& mounted : mountedList)
 			{
@@ -277,37 +354,37 @@ namespace Plugins::Autobuy
 				{
 					case ET_MINE: {
 						if (clientInfo.mines)
-							AddEquipToCart(static_cast<Archetype::Launcher*>(eq), cargo.value(), cartList, aci, L"Mines");
+							AddEquipToCart(static_cast<Archetype::Launcher*>(eq), cargo.value(), cartList, aci, L"Mines", ammoLimitMap);
 
 						break;
 					}
 					case ET_CM: {
 						if (clientInfo.cm)
-							AddEquipToCart(static_cast<Archetype::Launcher*>(eq), cargo.value(), cartList, aci, L"Countermeasures");
+							AddEquipToCart(static_cast<Archetype::Launcher*>(eq), cargo.value(), cartList, aci, L"Countermeasures", ammoLimitMap);
 
 						break;
 					}
 					case ET_TORPEDO: {
 						if (clientInfo.torps)
-							AddEquipToCart(static_cast<Archetype::Launcher*>(eq), cargo.value(), cartList, aci, L"Torpedoes");
+							AddEquipToCart(static_cast<Archetype::Launcher*>(eq), cargo.value(), cartList, aci, L"Torpedoes", ammoLimitMap);
 
 						break;
 					}
 					case ET_CD: {
 						if (clientInfo.cd)
-							AddEquipToCart(static_cast<Archetype::Launcher*>(eq), cargo.value(), cartList, aci, L"Cruise Disrupters");
+							AddEquipToCart(static_cast<Archetype::Launcher*>(eq), cargo.value(), cartList, aci, L"Cruise Disrupters", ammoLimitMap);
 
 						break;
 					}
 					case ET_MISSILE: {
 						if (clientInfo.missiles)
-							AddEquipToCart(static_cast<Archetype::Launcher*>(eq), cargo.value(), cartList, aci, L"Missiles");
+							AddEquipToCart(static_cast<Archetype::Launcher*>(eq), cargo.value(), cartList, aci, L"Missiles", ammoLimitMap);
 
 						break;
 					}
 					case ET_GUN: {
 						if (clientInfo.shells)
-							AddEquipToCart(static_cast<Archetype::Launcher*>(eq), cargo.value(), cartList, aci, L"Shells");
+							AddEquipToCart(static_cast<Archetype::Launcher*>(eq), cargo.value(), cartList, aci, L"Shells", ammoLimitMap);
 
 						break;
 					}
@@ -532,9 +609,59 @@ namespace Plugins::Autobuy
 		CreateUserCommand(L"/autobuy", L"<consumable type/info> <on/off>", UserCmdAutobuy, L"Sets up automatic purchases for consumables."),
 	}};
 
+	int __fastcall GetAmmoCapacityDetourHash(CShip* cship, void* edx, uint ammoArch)
+	{
+		uint clientId = cship->ownerPlayer;
+		uint launcherCount = 1;
+		uint ammoPerLauncher = MAX_PLAYER_AMMO;
+		uint currCount = 0;
+
+		CEquipTraverser tr(EquipmentClass::Cargo);
+		CECargo* cargo;
+		while (cargo = reinterpret_cast<CECargo*>(cship->equip_manager.Traverse(tr)))
+		{
+			if (cargo->archetype->iArchId == ammoArch)
+			{
+				currCount = cargo->GetCount();
+				break;
+			}
+		}
+
+		auto ammoLimits = global->playerAmmoLimits.find(clientId);
+		if (ammoLimits != global->playerAmmoLimits.end())
+		{
+			auto currAmmoLimit = ammoLimits->second.find(ammoArch);
+			if (currAmmoLimit != ammoLimits->second.end())
+			{
+				launcherCount = std::max(1, currAmmoLimit->second.launcherCount);
+			}
+		}
+
+		auto ammoIter = global->ammoLimits.find(ammoArch);
+		if (ammoIter != global->ammoLimits.end())
+		{
+			ammoPerLauncher = ammoIter->second.ammoLimit;
+		}
+
+		int remainingCapacity = (ammoPerLauncher * launcherCount) - currCount;
+
+		remainingCapacity = std::max(remainingCapacity, 0);
+		return remainingCapacity;
+	}
+
+	int __fastcall GetAmmoCapacityDetourEq(CShip* cship, void* edx, Archetype::Equipment* ammoType)
+	{
+		return GetAmmoCapacityDetourHash(cship, edx, ammoType->iArchId);
+	}
+
 	// Load Settings
 	void LoadSettings()
 	{
+		HANDLE hCommon = GetModuleHandle("common.dll");
+		PatchCallAddr((char*)hCommon, 0x3E60D, (char*)GetAmmoCapacityDetourEq);
+		PatchCallAddr((char*)hCommon, 0x535E7, (char*)GetAmmoCapacityDetourHash);
+		PatchCallAddr((char*)hCommon, 0x535F8, (char*)GetAmmoCapacityDetourHash);
+
 		auto config = Serializer::JsonToObject<Config>();
 		global->config = std::make_unique<Config>(config);
 

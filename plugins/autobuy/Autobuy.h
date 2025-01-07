@@ -28,6 +28,21 @@ namespace Plugins::Autobuy
 		std::wstring description;
 	};
 
+	struct ammoData
+	{
+		int ammoAdjustment;
+		int ammoCount;
+		ushort sid;
+		int launcherCount;
+		int ammoLimit;
+	};
+
+	struct AmmoStruct
+	{
+		int ammoLimit;
+		int launcherStackingLimit;
+	};
+
 	//! Configurable fields for this plugin
 	struct Config final : Reflectable
 	{
@@ -57,7 +72,9 @@ namespace Plugins::Autobuy
 		std::unique_ptr<Config> config = nullptr;
 		std::map<uint, AutobuyInfo> autobuyInfo;
 		ReturnCode returnCode = ReturnCode::Default;
-		std::unordered_map<uint, int> ammoLimits;
+		std::unordered_map<uint, AmmoStruct> ammoLimits;
+
+		std::unordered_map<uint, std::unordered_map<uint, ammoData>> playerAmmoLimits;
 	};
 
 } // namespace Plugins::Autobuy
