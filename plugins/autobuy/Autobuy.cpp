@@ -704,6 +704,19 @@ namespace Plugins::Autobuy
 			}
 		}
 	}
+
+	void PlayerLaunch([[maybe_unused]] const uint& ship, ClientId& client)
+	{
+		std::unordered_map<uint, ammoData> ammoLauncherCount = GetAmmoLimits(client);
+		global->playerAmmoLimits[client] = ammoLauncherCount;
+		for (auto& ammo : ammoLauncherCount)
+		{
+			if (ammo.second.ammoAdjustment < 0)
+			{
+				pub::Player::RemoveCargo(client, ammo.second.sid, -ammo.second.ammoAdjustment);
+			}
+		}
+	}
 } // namespace Plugins::Autobuy
 
 using namespace Plugins::Autobuy;
@@ -723,5 +736,6 @@ extern "C" EXPORT void ExportPluginInfo(PluginInfo* pi)
 	pi->versionMinor(PluginMinorVersion::VERSION_00);
 	pi->emplaceHook(HookedCall::FLHook__LoadSettings, &LoadSettings, HookStep::After);
 	pi->emplaceHook(HookedCall::FLHook__ClearClientInfo, &ClearClientInfo, HookStep::After);
+	pi->emplaceHook(HookedCall::IServerImpl__PlayerLaunch, &PlayerLaunch, HookStep::After);
 	pi->emplaceHook(HookedCall::IServerImpl__BaseEnter, &OnBaseEnter, HookStep::After);
 }
