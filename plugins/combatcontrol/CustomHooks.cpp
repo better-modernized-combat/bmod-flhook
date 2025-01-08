@@ -168,6 +168,7 @@ void Plugins::Combatcontrol::LoadHookOverrides()
 
 	PatchCallAddr((char*)hCommon, 0x4CB81, (char*)MineSpin);
 	PatchCallAddr((char*)hCommon, 0x4CAF1, (char*)MineImpulse);
+	PatchCallAddr((char*)hCommon, 0x48661, (char*)CMImpulse);
 
 	FARPROC CGuidedInit = FARPROC(0x62ACCB0);
 	Detour(CGuidedInit, CGuidedInitNaked);

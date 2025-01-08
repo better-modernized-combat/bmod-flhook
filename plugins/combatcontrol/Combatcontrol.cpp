@@ -106,6 +106,7 @@ namespace Plugins::Combatcontrol
 				}
 				else if (ini.is_header("MineDropper"))
 				{
+
 					while (ini.read_value())
 					{
 						if (ini.is_value("nickname"))
@@ -116,6 +117,16 @@ namespace Plugins::Combatcontrol
 						{
 							float baseRefire = ((Archetype::MineDropper*)Archetype::GetEquipment(nickname))->fRefireDelay;
 							global->burstGunData[nickname] = { ini.get_value_int(0), baseRefire - ini.get_value_float(1) };
+						}
+					}
+				}
+				else if (ini.is_header("Mine"))
+				{
+					while (ini.read_value())
+					{
+						if (ini.is_value("nickname"))
+						{
+							nickname = CreateID(ini.get_value_string(0));
 						}
 						else if (ini.is_value("self_detonate"))
 						{
@@ -357,6 +368,49 @@ namespace Plugins::Combatcontrol
 		PhySys::AddToVelocity(mine, launchVec);
 	}
 
+	void CMImpulse(CCounterMeasure* cm, Vector& launchVec)
+	{
+		auto cmInfo = global->cmDispersionMap.find(cm->archetype->iArchId);
+		if (cmInfo != global->cmDispersionMap.end())
+		{
+			Vector randVecAxis = RandomVector(1.0f);
+
+			Vector vxp = Hk::Math::VectorCross(randVecAxis, launchVec);
+			Vector vxvxp = Hk::Math::VectorCross(randVecAxis, vxp);
+
+			float angle = cmInfo->second;
+			angle *= rand() % 10000 / 10000.f;
+
+			vxp = Hk::Math::VectorMultiply(vxp, sinf(angle));
+			vxvxp = Hk::Math::VectorMultiply(vxvxp, 1.0f - cosf(angle));
+
+			launchVec.x += vxp.x + vxvxp.x;
+			launchVec.y += vxp.y + vxvxp.y;
+			launchVec.z += vxp.z + vxvxp.z;
+		}
+
+		PhySys::AddToVelocity(cm, launchVec);
+	}
+
+	void InitSolarBurstData(CEqObj* solar)
+	{
+		auto& newMapEntry = global->solarGunData[solar->id];
+
+		CEquipTraverser tr(EquipmentClass::Gun);
+		CELauncher* gun;
+		while (gun = reinterpret_cast<CELauncher*>(solar->equip_manager.Traverse(tr)))
+		{
+			auto burstGunDataIter = global->burstGunData.find(gun->archetype->iArchId);
+			if (burstGunDataIter == global->burstGunData.end())
+			{
+				continue;
+			}
+
+			newMapEntry[gun->iSubObjId] =
+			{ burstGunDataIter->second.magSize,burstGunDataIter->second.magSize, burstGunDataIter->second.reloadTime };
+		}
+	}
+
 	FireResult __fastcall CELauncherFire(CELauncher* gun, void*edx, const Vector& pos)
 	{
 		using CELAUNCHERFIRE = FireResult(__thiscall*)(CELauncher*, const Vector&);
@@ -368,30 +422,76 @@ namespace Plugins::Combatcontrol
 			return fireResult;
 		}
 
-		if (gun->owner->objectClass == CObject::CSOLAR_OBJECT || gun->owner->ownerPlayer)
+		if (gun->owner->ownerPlayer)
 		{
 			return fireResult;
 		}
 
-		auto shipDataIter = global->shipGunData.find(gun->owner->id);
-		if (shipDataIter == global->shipGunData.end())
+		if (gun->owner->objectClass == CObject::CSHIP_OBJECT)
 		{
-			return fireResult;
-		}
+			auto shipDataIter = global->shipGunData.find(gun->owner->id);
+			if (shipDataIter == global->shipGunData.end())
+			{
+				return fireResult;
+			}
 
-		auto gunData = shipDataIter->second.find(gun->iSubObjId);
-		if (gunData == shipDataIter->second.end())
-		{
-			return fireResult;
-		}
+			auto gunData = shipDataIter->second.find(gun->iSubObjId);
+			if (gunData == shipDataIter->second.end())
+			{
+				return fireResult;
+			}
 
-		if (--gunData->second.bulletsLeft == 0)
+			if (--gunData->second.bulletsLeft == 0)
+			{
+				gunData->second.bulletsLeft = gunData->second.maxMagSize;
+				gun->refireDelayElapsed = gunData->second.reloadTime;
+			}
+		}
+		else if (gun->owner->objectClass == CObject::CSOLAR_OBJECT)
 		{
-			gunData->second.bulletsLeft = gunData->second.maxMagSize;
-			gun->refireDelayElapsed = gunData->second.reloadTime;
+			auto solarDataIter = global->solarGunData.find(gun->owner->id);
+			if (solarDataIter == global->solarGunData.end())
+			{
+				InitSolarBurstData(gun->owner);
+				solarDataIter = global->solarGunData.find(gun->owner->id);
+			}
+
+			auto gunData = solarDataIter->second.find(gun->iSubObjId);
+			if (gunData == solarDataIter->second.end())
+			{
+				return fireResult;
+			}
+
+			if (--gunData->second.bulletsLeft == 0)
+			{
+				gunData->second.bulletsLeft = gunData->second.maxMagSize;
+				gun->refireDelayElapsed = gunData->second.reloadTime;
+			}
 		}
 
 		return fireResult;
+	}
+
+	void __stdcall SolarDestroyed(IObjRW* iobj, bool isKill, uint killerId)
+	{
+		global->solarGunData.erase(iobj->get_id());
+	}
+
+	void CSolarInit(CSolar* solar)
+	{
+		CEquipTraverser tr(EquipmentClass::Gun);
+		CELauncher* gun;
+		while (gun = reinterpret_cast<CELauncher*>(solar->equip_manager.Traverse(tr)))
+		{
+			auto burstGunDataIter = global->burstGunData.find(gun->archetype->iArchId);
+			if (burstGunDataIter == global->burstGunData.end())
+			{
+				continue;
+			}
+
+			global->solarGunData[solar->id][gun->iSubObjId] =
+			{ burstGunDataIter->second.magSize,burstGunDataIter->second.magSize, burstGunDataIter->second.reloadTime };
+		}
 	}
 
 	void __stdcall ShipDestroyed(IObjRW* iobj, bool isKill, uint killerId)

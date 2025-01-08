@@ -59,6 +59,7 @@ namespace Plugins::Combatcontrol
 		ReturnCode returnCode = ReturnCode::Default;
 
 		std::unordered_map<uint, std::unordered_map<ushort, BurstFireGunData>> shipGunData;
+		std::unordered_map<uint, std::unordered_map<ushort, BurstFireGunData>> solarGunData;
 		std::unordered_map<uint, BurstFireData> burstGunData;
 
 		std::unordered_map<uint, GuidedData> guidedDataMap;
@@ -79,6 +80,7 @@ namespace Plugins::Combatcontrol
 	void __stdcall MineDestroyed(IObjRW* iobj, bool& isKill, uint killerId);
 	void __stdcall GuidedDestroyed(IObjRW* iobj, bool& isKill, uint killerId);
 	void MineImpulse(CMine* mine, Vector& launchVec);
+	void CMImpulse(CCounterMeasure* cm, Vector& launchVec);
 	void MineSpin(CMine* mine, Vector& spinVec);
 	void LoadHookOverrides();
 
