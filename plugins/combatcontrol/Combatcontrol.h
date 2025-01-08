@@ -76,8 +76,8 @@ namespace Plugins::Combatcontrol
 	FireResult __fastcall CELauncherFire(CELauncher* gun, void* edx, const Vector& pos);
 	void __stdcall ShipDestroyed(IObjRW* iobj, bool isKill, uint killerId);
 	void __fastcall GuidedInit(CGuided* guided, void* edx, CGuided::CreateParms& parms);
-	bool __stdcall MineDestroyed(IObjRW* iobj, bool isKill, uint killerId);
-	bool __stdcall GuidedDestroyed(IObjRW* iobj, bool isKill, uint killerId);
+	void __stdcall MineDestroyed(IObjRW* iobj, bool& isKill, uint killerId);
+	void __stdcall GuidedDestroyed(IObjRW* iobj, bool& isKill, uint killerId);
 	void MineImpulse(CMine* mine, Vector& launchVec);
 	void MineSpin(CMine* mine, Vector& spinVec);
 	void LoadHookOverrides();

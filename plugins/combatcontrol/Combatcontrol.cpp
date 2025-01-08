@@ -466,7 +466,7 @@ namespace Plugins::Combatcontrol
 
 	}
 
-	bool __stdcall MineDestroyed(IObjRW* iobj, bool isKill, uint killerId)
+	void __stdcall MineDestroyed(IObjRW* iobj, bool& isKill, uint killerId)
 	{
 		CMine* mine = reinterpret_cast<CMine*>(iobj->cobj);
 		Archetype::Mine* mineArch = reinterpret_cast<Archetype::Mine*>(mine->archetype);
@@ -476,27 +476,26 @@ namespace Plugins::Combatcontrol
 		{
 			if (isKill && mineArch->fLifeTime - mine->remainingLifetime < mineInfo->second.armingTime)
 			{
-				pub::SpaceObj::Destroy(((CSimple*)iobj->cobj)->id, DestroyType::VANISH);
-				return false;
+				isKill = false;
+				return;
 			}
 
 			if (!isKill && mineInfo->second.detonateOnEndLifetime)
 			{
-				pub::SpaceObj::Destroy(((CSimple*)iobj->cobj)->id, DestroyType::FUSE);
-				return false;
+				isKill = true;
+				return;
 			}
 		}
-		return true;
 	}
 
-	bool __stdcall GuidedDestroyed(IObjRW* iobj, bool isKill, uint killerId)
+	void __stdcall GuidedDestroyed(IObjRW* iobj, bool& isKill, uint killerId)
 	{
 		global->newMissileUpdateMap.erase(iobj->cobj->id);
 
 		auto guidedInfo = global->guidedDataMap.find(iobj->cobj->archetype->iArchId);
 		if (guidedInfo == global->guidedDataMap.end())
 		{
-			return true;
+			return;
 		}
 
 		if (guidedInfo->second.armingTime)
@@ -505,11 +504,10 @@ namespace Plugins::Combatcontrol
 			CGuided* guided = reinterpret_cast<CGuided*>(iobj->cobj);
 			if (guided->lifetime < armingTime)
 			{
-				pub::SpaceObj::Destroy(((CSimple*)iobj->cobj)->id, DestroyType::VANISH);
-				return false;
+				isKill = false;
 			}
 		}
-		return true;
+		return;
 	}
 
 	int Update()

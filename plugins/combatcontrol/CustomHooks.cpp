@@ -40,36 +40,29 @@ __declspec(naked) void MineDestroyedNaked()
 	__asm {
 		push ecx
 		push[esp + 0xC]
-		push[esp + 0xC]
+		lea eax, [esp + 0xC]
+		push eax
 		push ecx
 		call Plugins::Combatcontrol::MineDestroyed
 		pop ecx
-		test al, al
-		jz skipLabel
 		mov eax, [MineDestroyedOrigFunc]
 		jmp eax
-		skipLabel :
-		ret 0x8
 	}
 }
 
 FARPROC GuidedDestroyedOrigFunc;
 __declspec(naked) void GuidedDestroyedNaked()
 {
-
 	__asm {
 		push ecx
 		push[esp + 0xC]
-		push[esp + 0xC]
+		lea eax, [esp + 0xC]
+		push eax
 		push ecx
 		call Plugins::Combatcontrol::GuidedDestroyed
 		pop ecx
-		test al, al
-		jz skipLabel
 		mov eax, [GuidedDestroyedOrigFunc]
 		jmp eax
-		skipLabel :
-		ret 0x8
 	}
 }
 
