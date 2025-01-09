@@ -190,10 +190,7 @@ namespace Plugins::Autobuy
 				continue;
 			}
 
-			if (ammoLimit->second.launcherStackingLimit > returnMap[ammo].launcherCount)
-			{
-				returnMap[ammo].launcherCount++;
-			}
+			returnMap[ammo].launcherCount++;
 		}
 
 		for (auto& eq : Players[client].equipDescList.equip)
@@ -211,11 +208,11 @@ namespace Plugins::Autobuy
 		{
 			if (global->ammoLimits.count(ammo.first))
 			{
-				ammo.second.ammoLimit = std::max(1, ammo.second.launcherCount) * global->ammoLimits.at(ammo.first).ammoLimit;
+				ammo.second.ammoLimit = std::max(1, ammo.second.launcherCount) * global->ammoLimits.at(ammo.first);
 			}
 			else
 			{
-				ammo.second.ammoLimit = MAX_PLAYER_AMMO;
+				ammo.second.ammoLimit = 1;
 			}
 			ammo.second.ammoAdjustment = ammo.second.ammoLimit - ammo.second.ammoCount;
 		}
@@ -613,7 +610,7 @@ namespace Plugins::Autobuy
 	{
 		uint clientId = cship->ownerPlayer;
 		uint launcherCount = 1;
-		uint ammoPerLauncher = MAX_PLAYER_AMMO;
+		uint ammoPerLauncher = 1;
 		uint currCount = 0;
 
 		CEquipTraverser tr(EquipmentClass::Cargo);
@@ -640,7 +637,7 @@ namespace Plugins::Autobuy
 		auto ammoIter = global->ammoLimits.find(ammoArch);
 		if (ammoIter != global->ammoLimits.end())
 		{
-			ammoPerLauncher = ammoIter->second.ammoLimit;
+			ammoPerLauncher = ammoIter->second;
 		}
 
 		int remainingCapacity = (ammoPerLauncher * launcherCount) - currCount;
@@ -712,19 +709,21 @@ namespace Plugins::Autobuy
 
 			while (ini.read_header())
 			{
-				if (ini.is_header("Munition"))
+				if (ini.is_header("CounterMeasureDropper")
+					|| ini.is_header("MineDropper")
+					|| ini.is_header("Gun"))
 				{
 					uint itemname = 0;
 
 					while (ini.read_value())
 					{
-						if (ini.is_value("nickname"))
+						if (ini.is_value("projectile_archetype"))
 						{
 							itemname = CreateID(ini.get_value_string(0));
 						}
 						else if (ini.is_value("ammo_limit"))
 						{
-							global->ammoLimits[itemname] = {ini.get_value_int(0), ini.get_value_int(1)};
+							global->ammoLimits[itemname] += ini.get_value_int(0);
 						}
 					}
 				}

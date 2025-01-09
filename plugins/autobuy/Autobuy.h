@@ -40,7 +40,6 @@ namespace Plugins::Autobuy
 	struct AmmoStruct
 	{
 		int ammoLimit;
-		int launcherStackingLimit;
 	};
 
 	//! Configurable fields for this plugin
@@ -60,7 +59,7 @@ namespace Plugins::Autobuy
 		std::unique_ptr<Config> config = nullptr;
 		std::unordered_map<uint, AutobuyInfo> autobuyInfo;
 		ReturnCode returnCode = ReturnCode::Default;
-		std::unordered_map<uint, AmmoStruct> ammoLimits;
+		std::unordered_map<uint, int> ammoLimits;
 
 		std::unordered_map<uint, std::unordered_map<uint, ammoData>> playerAmmoLimits;
 	};
