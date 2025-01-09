@@ -212,7 +212,7 @@ namespace Plugins::Autobuy
 			}
 			else
 			{
-				ammo.second.ammoLimit = 1;
+				ammo.second.ammoLimit = 0;
 			}
 			ammo.second.ammoAdjustment = ammo.second.ammoLimit - ammo.second.ammoCount;
 		}
@@ -231,7 +231,7 @@ namespace Plugins::Autobuy
 		}
 		else
 		{
-			item.count = MAX_PLAYER_AMMO - PlayerGetAmmoCount(cargo, item.archId);
+			return;
 		}
 
 		item.description = desc;
@@ -610,7 +610,7 @@ namespace Plugins::Autobuy
 	{
 		uint clientId = cship->ownerPlayer;
 		uint launcherCount = 1;
-		uint ammoPerLauncher = 1;
+		uint ammoPerLauncher = 0;
 		uint currCount = 0;
 
 		CEquipTraverser tr(EquipmentClass::Cargo);
