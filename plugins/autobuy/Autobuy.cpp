@@ -654,6 +654,7 @@ namespace Plugins::Autobuy
 		return GetAmmoCapacityDetourHash(cship, edx, ammoType->iArchId);
 	}
 
+#pragma optimize("", off)
 	// Load Settings
 	void LoadSettings()
 	{
@@ -665,11 +666,45 @@ namespace Plugins::Autobuy
 		auto config = Serializer::JsonToObject<Config>();
 		global->config = std::make_unique<Config>(config);
 
-		// Get ammo limits
-		for (const auto& iniPath : global->config->ammoIniPaths)
+		INI_Reader ini;
+		char szCurDir[MAX_PATH];
+		GetCurrentDirectory(sizeof(szCurDir), szCurDir);
+		std::string currDir = std::string(szCurDir);
+		std::string scFreelancerIniFile = currDir + R"(\freelancer.ini)";
+
+		std::string gameDir = currDir.substr(0, currDir.length() - 4);
+		gameDir += std::string(R"(\DATA\)");
+
+		std::vector<std::string> equipFiles;
+
+		if (!ini.open(scFreelancerIniFile.c_str(), false))
 		{
-			INI_Reader ini;
-			if (!ini.open(iniPath.c_str(), false))
+			Console::ConErr("CombatControl: UNABLE TO LOAD FREELANCER.INI");
+			return;
+		}
+
+		while (ini.read_header())
+		{
+			if (!ini.is_header("Data"))
+			{
+				continue;
+			}
+			while (ini.read_value())
+			{
+				if (ini.is_value("equipment"))
+				{
+					equipFiles.emplace_back(ini.get_value_string());
+				}
+			}
+		}
+		ini.close();
+
+		// Get ammo limits
+		for (const auto& iniPath : equipFiles)
+		{
+
+			std::string equipFilePath = gameDir + iniPath;
+			if (!ini.open(equipFilePath.c_str(), false))
 			{
 				Console::ConErr(std::format("Was unable to read ammo limits from the following file: {}", iniPath));
 				return;
@@ -680,8 +715,6 @@ namespace Plugins::Autobuy
 				if (ini.is_header("Munition"))
 				{
 					uint itemname = 0;
-					int itemlimit = 0;
-					bool valid = false;
 
 					while (ini.read_value())
 					{
@@ -691,17 +724,12 @@ namespace Plugins::Autobuy
 						}
 						else if (ini.is_value("ammo_limit"))
 						{
-							valid = true;
-							itemlimit = ini.get_value_int(0);
+							global->ammoLimits[itemname] = {ini.get_value_int(0), ini.get_value_int(1)};
 						}
-					}
-
-					if (valid)
-					{
-						global->ammoLimits.insert(std::pair<uint, int>(itemname, itemlimit));
 					}
 				}
 			}
+			ini.close();
 		}
 	}
 
@@ -721,7 +749,7 @@ namespace Plugins::Autobuy
 
 using namespace Plugins::Autobuy;
 
-REFL_AUTO(type(Config), field(nanobot_nickname), field(shield_battery_nickname), field(ammoIniPaths))
+REFL_AUTO(type(Config), field(nanobot_nickname), field(shield_battery_nickname))
 
 DefaultDllMainSettings(LoadSettings);
 
