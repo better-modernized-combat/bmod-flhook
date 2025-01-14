@@ -163,15 +163,6 @@ namespace Plugins::Autobuy
 			Archetype::Equipment* eq = Archetype::GetEquipment(equip.iArchId);
 			EquipmentType type = Hk::Client::GetEqType(eq);
 
-			if (type == ET_OTHER)
-			{
-				if (equip.bMounted)
-				{
-					continue;
-				}
-				returnMap[equip.iArchId].ammoCount = equip.iCount;
-			}
-
 			if (!equip.bMounted || equip.is_internal())
 			{
 				continue;
@@ -182,15 +173,13 @@ namespace Plugins::Autobuy
 				continue;
 			}
 
-			uint ammo = ((Archetype::Launcher*)eq)->iProjectileArchId;
-
-			auto ammoLimit = global->ammoLimits.find(ammo);
+			auto ammoLimit = global->ammoLimits.find(equip.iArchId);
 			if (ammoLimit == global->ammoLimits.end())
 			{
 				continue;
 			}
 
-			returnMap[ammo].launcherCount++;
+			returnMap[ammoLimit->second.first].ammoLimit += ammoLimit->second.second;
 		}
 
 		for (auto& eq : Players[client].equipDescList.equip)
@@ -198,23 +187,9 @@ namespace Plugins::Autobuy
 			auto ammo = returnMap.find(eq.iArchId);
 			if (ammo != returnMap.end())
 			{
-				ammo->second.ammoCount = eq.iCount;
 				ammo->second.sid = eq.sId;
-				continue;
+				ammo->second.ammoAdjustment = ammo->second.ammoLimit - eq.iCount;
 			}
-		}
-
-		for (auto& ammo : returnMap)
-		{
-			if (global->ammoLimits.count(ammo.first))
-			{
-				ammo.second.ammoLimit = std::max(1, ammo.second.launcherCount) * global->ammoLimits.at(ammo.first);
-			}
-			else
-			{
-				ammo.second.ammoLimit = 0;
-			}
-			ammo.second.ammoAdjustment = ammo.second.ammoLimit - ammo.second.ammoCount;
 		}
 
 		return returnMap;
@@ -225,15 +200,12 @@ namespace Plugins::Autobuy
 	{
 		item.archId = launcher->iProjectileArchId;
 		uint itemId = Arch2Good(item.archId);
-		if (global->ammoLimits.contains(Arch2Good(item.archId)))
-		{
-			item.count = ammoLimitMap[itemId].ammoAdjustment - PlayerGetAmmoCount(cargo, item.archId);
-		}
-		else
+		if (!global->ammoLimits.contains(Arch2Good(item.archId)))
 		{
 			return;
 		}
 
+		item.count = ammoLimitMap[itemId].ammoAdjustment - PlayerGetAmmoCount(cargo, item.archId);
 		item.description = desc;
 		cart.emplace_back(item);
 	}
@@ -609,9 +581,13 @@ namespace Plugins::Autobuy
 	int __fastcall GetAmmoCapacityDetourHash(CShip* cship, void* edx, uint ammoArch)
 	{
 		uint clientId = cship->ownerPlayer;
-		uint launcherCount = 1;
-		uint ammoPerLauncher = 0;
+		if (!clientId)
+		{
+			return 0;
+		}
+
 		uint currCount = 0;
+		uint ammoLimit = 0;
 
 		CEquipTraverser tr(EquipmentClass::Cargo);
 		CECargo* cargo;
@@ -630,17 +606,11 @@ namespace Plugins::Autobuy
 			auto currAmmoLimit = ammoLimits->second.find(ammoArch);
 			if (currAmmoLimit != ammoLimits->second.end())
 			{
-				launcherCount = std::max(1, currAmmoLimit->second.launcherCount);
+				ammoLimit = currAmmoLimit->second.ammoLimit;
 			}
 		}
 
-		auto ammoIter = global->ammoLimits.find(ammoArch);
-		if (ammoIter != global->ammoLimits.end())
-		{
-			ammoPerLauncher = ammoIter->second;
-		}
-
-		int remainingCapacity = (ammoPerLauncher * launcherCount) - currCount;
+		int remainingCapacity = ammoLimit - currCount;
 
 		remainingCapacity = std::max(remainingCapacity, 0);
 		return remainingCapacity;
@@ -651,7 +621,6 @@ namespace Plugins::Autobuy
 		return GetAmmoCapacityDetourHash(cship, edx, ammoType->iArchId);
 	}
 
-#pragma optimize("", off)
 	// Load Settings
 	void LoadSettings()
 	{
@@ -714,16 +683,21 @@ namespace Plugins::Autobuy
 					|| ini.is_header("Gun"))
 				{
 					uint itemname = 0;
+					uint nickname = 0;
 
 					while (ini.read_value())
 					{
-						if (ini.is_value("projectile_archetype"))
+						if (ini.is_value("nickname"))
+						{
+							nickname = CreateID(ini.get_value_string(0));
+						}
+						else if (ini.is_value("projectile_archetype"))
 						{
 							itemname = CreateID(ini.get_value_string(0));
 						}
 						else if (ini.is_value("ammo_limit"))
 						{
-							global->ammoLimits[itemname] += ini.get_value_int(0);
+							global->ammoLimits[nickname] = { itemname, ini.get_value_int(0) };
 						}
 					}
 				}
