@@ -168,11 +168,6 @@ namespace Plugins::Autobuy
 				continue;
 			}
 
-			if (type != ET_GUN && type != ET_MINE && type != ET_MISSILE && type != ET_CM && type != ET_CD && type != ET_TORPEDO)
-			{
-				continue;
-			}
-
 			auto ammoLimit = global->ammoLimits.find(equip.iArchId);
 			if (ammoLimit == global->ammoLimits.end())
 			{
@@ -708,13 +703,27 @@ namespace Plugins::Autobuy
 
 	void PlayerLaunch([[maybe_unused]] const uint& ship, ClientId& client)
 	{
-		std::unordered_map<uint, ammoData> ammoLauncherCount = GetAmmoLimits(client);
-		global->playerAmmoLimits[client] = ammoLauncherCount;
-		for (auto& ammo : ammoLauncherCount)
+		std::unordered_map<uint, ammoData> ammoLimits = GetAmmoLimits(client);
+		global->playerAmmoLimits[client] = ammoLimits;
+		for (auto& ammo : ammoLimits)
 		{
 			if (ammo.second.ammoAdjustment < 0)
 			{
 				pub::Player::RemoveCargo(client, ammo.second.sid, -ammo.second.ammoAdjustment);
+			}
+		}
+
+		for (auto& equip : Players[client].equipDescList.equip)
+		{
+			if (equip.bMounted)
+			{
+				continue;
+			}
+			bool isCommodity = false;
+			pub::IsCommodity(equip.iArchId, isCommodity);
+			if (!isCommodity && !ammoLimits.count(equip.iArchId))
+			{
+				pub::Player::RemoveCargo(client, equip.sId, equip.iCount);
 			}
 		}
 	}
