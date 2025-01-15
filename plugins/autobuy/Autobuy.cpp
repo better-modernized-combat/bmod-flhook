@@ -719,6 +719,13 @@ namespace Plugins::Autobuy
 			{
 				continue;
 			}
+			Archetype::Equipment* eq = Archetype::GetEquipment(equip.iArchId);
+			EquipmentType type = Hk::Client::GetEqType(eq);
+
+			if (type != EquipmentType::ET_MUNITION)
+			{
+				continue;
+			}
 			bool isCommodity = false;
 			pub::IsCommodity(equip.iArchId, isCommodity);
 			if (!isCommodity && !ammoLimits.count(equip.iArchId))
