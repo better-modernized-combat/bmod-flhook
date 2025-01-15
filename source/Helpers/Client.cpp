@@ -398,8 +398,10 @@ namespace Hk::Client
 
 	EquipmentType GetEqType(Archetype::Equipment* eq)
 	{
+		uint iVFTableMineDropper = (uint)hModCommon + ADDR_COMMON_VFTABLE_MINEDROPPER;
 		uint iVFTableMine = (uint)hModCommon + ADDR_COMMON_VFTABLE_MINE;
-		uint iVFTableCM = (uint)hModCommon + ADDR_COMMON_VFTABLE_CM;
+		uint iVFTableCMDropper = (uint)hModCommon + ADDR_COMMON_VFTABLE_CMDROPPER;
+		uint iVFTableCM= (uint)hModCommon + ADDR_COMMON_VFTABLE_CM;
 		uint iVFTableGun = (uint)hModCommon + ADDR_COMMON_VFTABLE_GUN;
 		uint iVFTableShieldGen = (uint)hModCommon + ADDR_COMMON_VFTABLE_SHIELDGEN;
 		uint iVFTableThruster = (uint)hModCommon + ADDR_COMMON_VFTABLE_THRUSTER;
@@ -428,6 +430,8 @@ namespace Hk::Client
 			else
 				return ET_GUN;
 		}
+		else if (iVFTable == iVFTableCMDropper)
+			return ET_CMDROPPER;
 		else if (iVFTable == iVFTableCM)
 			return ET_CM;
 		else if (iVFTable == iVFTableShieldGen)
@@ -440,6 +444,8 @@ namespace Hk::Client
 			return ET_NANOBOT;
 		else if (iVFTable == iVFTableMunition)
 			return ET_MUNITION;
+		else if (iVFTable == iVFTableMineDropper)
+			return ET_MINEDROPPER;
 		else if (iVFTable == iVFTableMine)
 			return ET_MINE;
 		else if (iVFTable == iVFTableEngine)

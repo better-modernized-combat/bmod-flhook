@@ -722,7 +722,7 @@ namespace Plugins::Autobuy
 			Archetype::Equipment* eq = Archetype::GetEquipment(equip.iArchId);
 			EquipmentType type = Hk::Client::GetEqType(eq);
 
-			if (type != EquipmentType::ET_MUNITION)
+			if (type != EquipmentType::ET_MUNITION && type != EquipmentType::ET_CM && type != EquipmentType::ET_MINE)
 			{
 				continue;
 			}
