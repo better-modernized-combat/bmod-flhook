@@ -511,7 +511,7 @@ namespace Plugins::Combatcontrol
 			return;
 		}
 
-		CEquipTraverser tr(EquipmentClass::Gun);
+		CEquipTraverser tr(EquipmentClass::Gun | EquipmentClass::CM | EquipmentClass::MineLauncher);
 		CELauncher* gun;
 		while (gun = reinterpret_cast<CELauncher*>(ship->equip_manager.Traverse(tr)))
 		{
